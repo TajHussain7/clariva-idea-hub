@@ -1,0 +1,5 @@
+Things that you have to managed before going your APP to Production.
+App is in production tah tuser uses this and suddenly app crash in any user device then how you "developer" knows and how you fix it.
+If your user in such a region where internet facility is now achieved then that user wants to use your app and how he use in this scenario. Do this app entertains "offline" first approach behaviour.
+How th track that which feature takes more engagement of user then how you can track.
+During a user interaction with app or he perform some activity in this app then during this activity, internet gone or he kill the app then how to handle in this situation when he come back to app.
