@@ -3,20 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Clariva — AI-powered idea validation API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: ideas
+    description: Idea management operations
+  - name: analyses
+    description: Idea analysis operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +29,262 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current session
+      responses:
+        "204":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /ideas:
+    get:
+      operationId: listIdeas
+      tags: [ideas]
+      summary: List ideas for current user
+      responses:
+        "200":
+          description: List of ideas with analysis summary
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IdeaWithAnalysis"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createIdea
+      tags: [ideas]
+      summary: Submit a new idea
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIdeaBody"
+      responses:
+        "201":
+          description: Created idea (analysis queued automatically)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdeaWithAnalysis"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /ideas/compare:
+    get:
+      operationId: compareIdeas
+      tags: [analyses]
+      summary: Compare multiple ideas by comma-separated IDs
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated idea IDs (e.g. "1,2,3")
+      responses:
+        "200":
+          description: Ideas with full analysis for comparison
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IdeaWithAnalysis"
+        "400":
+          description: Invalid IDs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /ideas/{id}:
+    get:
+      operationId: getIdea
+      tags: [ideas]
+      summary: Get a single idea with full analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Idea with full analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdeaWithAnalysis"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteIdea
+      tags: [ideas]
+      summary: Delete an idea and its analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /ideas/{id}/analyze:
+    post:
+      operationId: analyzeIdea
+      tags: [analyses]
+      summary: Trigger or re-trigger AI analysis for an idea
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "202":
+          description: Analysis started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisStatus"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +295,208 @@ components:
       required:
         - status
 
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+        domain:
+          type: ["string", "null"]
+      required:
+        - email
+        - password
+        - name
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        domain:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - name
+        - createdAt
+
+    CreateIdeaBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        domain:
+          type: string
+        complexity:
+          type: integer
+      required:
+        - title
+        - description
+        - domain
+
+    AnalysisInsight:
+      type: object
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+      required:
+        - title
+        - desc
+
+    GithubRepo:
+      type: object
+      properties:
+        name:
+          type: string
+        org:
+          type: string
+        stars:
+          type: integer
+        desc:
+          type: string
+        lang:
+          type: string
+        url:
+          type: string
+      required:
+        - name
+        - org
+        - stars
+        - desc
+        - lang
+        - url
+
+    IdeaAnalysis:
+      type: object
+      properties:
+        id:
+          type: integer
+        ideaId:
+          type: integer
+        status:
+          type: string
+        uniquenessScore:
+          type: ["integer", "null"]
+        feasibilityScore:
+          type: ["integer", "null"]
+        impactScore:
+          type: ["integer", "null"]
+        innovationScore:
+          type: ["integer", "null"]
+        overallScore:
+          type: ["integer", "null"]
+        strengths:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/AnalysisInsight"
+        weaknesses:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/AnalysisInsight"
+        risks:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/AnalysisInsight"
+        suggestions:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/AnalysisInsight"
+        githubRepos:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/GithubRepo"
+        techStack:
+          type: ["array", "null"]
+          items:
+            type: string
+        marketContext:
+          type: ["string", "null"]
+        verdictSummary:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - ideaId
+        - status
+        - createdAt
+
+    IdeaWithAnalysis:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        domain:
+          type: string
+        complexity:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        analysis:
+          oneOf:
+            - $ref: "#/components/schemas/IdeaAnalysis"
+            - type: "null"
+      required:
+        - id
+        - userId
+        - title
+        - description
+        - domain
+        - complexity
+        - status
+        - createdAt
+
+    AnalysisStatus:
+      type: object
+      properties:
+        ideaId:
+          type: integer
+        status:
+          type: string
+      required:
+        - ideaId
+        - status
