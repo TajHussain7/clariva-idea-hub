@@ -1,14 +1,16 @@
 import { Link, useLocation } from "wouter";
-import { LogOut, LayoutDashboard, PlusCircle, BarChart2 } from "lucide-react";
+import { LogOut, LayoutDashboard, PlusCircle, BarChart2, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "@/hooks/use-theme";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { data: user } = useGetMe();
   const logoutMutation = useLogout();
   const queryClient = useQueryClient();
+  const { theme, toggleTheme } = useTheme();
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
@@ -25,7 +27,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row dark">
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-card border-r border-border flex flex-col">
         <div className="p-6">
@@ -35,17 +37,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
           <p className="text-xs text-muted-foreground mt-1 font-mono">idea validation engine</p>
         </div>
-        
+
         <nav className="flex-1 px-4 space-y-1">
           {navItems.map((item) => {
             const isActive = location === item.href;
             return (
-              <Link 
-                key={item.href} 
+              <Link
+                key={item.href}
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive 
-                    ? "bg-primary/10 text-primary" 
+                  isActive
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
@@ -56,7 +58,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 mt-auto border-t border-border">
+        <div className="p-4 mt-auto border-t border-border space-y-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? (
+              <>
+                <Sun className="w-4 h-4" />
+                <span className="text-sm">Light mode</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-4 h-4" />
+                <span className="text-sm">Dark mode</span>
+              </>
+            )}
+          </Button>
+
           <div className="flex items-center justify-between">
             <div className="flex flex-col truncate">
               <span className="text-sm font-medium truncate">{user?.name}</span>
