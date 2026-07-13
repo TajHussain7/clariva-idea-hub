@@ -14,6 +14,18 @@ import {
 
 const router: IRouter = Router();
 const SALT_ROUNDS = 12;
+const MAX_AVATAR_URL_LENGTH = 2.5 * 1024 * 1024;
+
+function isAllowedAvatarValue(value: string) {
+  return (
+    value.startsWith("data:image/jpeg;base64,") ||
+    value.startsWith("data:image/png;base64,") ||
+    value.startsWith("data:image/webp;base64,") ||
+    value.startsWith("data:image/gif;base64,") ||
+    value.startsWith("http://") ||
+    value.startsWith("https://")
+  );
+}
 
 function toAuthUser(user: typeof usersTable.$inferSelect) {
   return {
@@ -170,6 +182,18 @@ router.put("/auth/me", async (req, res): Promise<void> => {
 
   const { name, phone, bio, avatarUrl, theme, language, notifications } =
     parsed.data;
+
+  if (avatarUrl != null) {
+    if (avatarUrl.length > MAX_AVATAR_URL_LENGTH) {
+      res.status(400).json({ error: "Avatar image is too large" });
+      return;
+    }
+
+    if (!isAllowedAvatarValue(avatarUrl)) {
+      res.status(400).json({ error: "Invalid avatar image format" });
+      return;
+    }
+  }
 
   const [updatedUser] = await db
     .update(usersTable)

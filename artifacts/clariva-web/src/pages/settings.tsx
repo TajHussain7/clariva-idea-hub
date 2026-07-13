@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ElementType,
+} from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  Eye,
+  EyeOff,
   Globe,
   Lock,
   Loader2,
@@ -12,6 +20,7 @@ import {
   Shield,
   Sun,
   Trash2,
+  Upload,
   User,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,6 +40,15 @@ import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
 import { getUserInitials } from "@/lib/user";
 
+const MAX_AVATAR_FILE_SIZE = 2 * 1024 * 1024;
+const ALLOWED_AVATAR_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const ALLOWED_AVATAR_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+
 const profileSchema = z.object({
   name: z.string().min(2, "Display name must be at least 2 characters"),
   phone: z
@@ -43,9 +61,6 @@ const profileSchema = z.object({
     .max(280, "Bio must be 280 characters or less")
     .optional()
     .or(z.literal("")),
-  avatarUrl: z
-    .union([z.string().url("Enter a valid image URL"), z.literal("")])
-    .optional(),
 });
 
 const passwordSchema = z
@@ -79,23 +94,12 @@ const languageOptions = [
   { value: "fr-FR", label: "French" },
 ];
 
-const notificationDefaults = {
-  marketShifts: true,
-  techTrends: true,
-  risks: true,
-  opportunities: true,
-  weeklyDigest: false,
-  analysisComplete: true,
-};
-
-type NotificationKey = keyof typeof notificationDefaults;
-
 function SectionHeader({
   icon: Icon,
   title,
   description,
 }: {
-  icon: React.ElementType;
+  icon: ElementType;
   title: string;
   description: string;
 }) {
@@ -112,45 +116,57 @@ function SectionHeader({
   );
 }
 
-function ToggleSwitch({
-  checked,
-  onChange,
+function PasswordField({
   label,
-  description,
-  disabled,
+  placeholder,
+  value,
+  onChange,
+  error,
+  visible,
+  onToggleVisibility,
+  autoComplete,
 }: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
   label: string;
-  description?: string;
-  disabled?: boolean;
+  placeholder?: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  visible: boolean;
+  onToggleVisibility: () => void;
+  autoComplete?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3 border-b border-border last:border-0">
-      <div>
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-        )}
-      </div>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`relative w-10 rounded-full transition-colors duration-200 shrink-0 ${
-          checked ? "bg-primary" : "bg-muted"
-        } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
-        style={{ height: "22px" }}
-      >
-        <span
-          className="absolute top-0.5 left-0.5 rounded-full bg-white shadow transition-transform duration-200"
-          style={{
-            width: "18px",
-            height: "18px",
-            transform: checked ? "translateX(18px)" : "translateX(0)",
-          }}
+    <div className="space-y-1.5">
+      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        {label}
+      </label>
+      <div className="relative">
+        <Input
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          className="h-10 bg-background border-border pr-10 focus-visible:ring-primary/30 focus-visible:border-primary"
         />
-      </button>
+        <button
+          type="button"
+          onClick={onToggleVisibility}
+          className="absolute inset-y-0 right-0 flex items-center justify-center px-3 text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={
+            visible
+              ? `Hide ${label.toLowerCase()}`
+              : `Show ${label.toLowerCase()}`
+          }
+        >
+          {visible ? (
+            <EyeOff className="w-4 h-4" />
+          ) : (
+            <Eye className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
@@ -158,6 +174,29 @@ function ToggleSwitch({
 function readError(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
+}
+
+function getFileExtension(fileName: string) {
+  const lastDot = fileName.lastIndexOf(".");
+  if (lastDot === -1) return "";
+  return fileName.slice(lastDot).toLowerCase();
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Could not read image file"));
+      }
+    };
+
+    reader.onerror = () => reject(new Error("Could not read image file"));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function Settings() {
@@ -169,18 +208,22 @@ export function Settings() {
   const updateMeMutation = useUpdateMe();
   const changePasswordMutation = useChangePassword();
   const deleteMeMutation = useDeleteMe();
+  const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [notifications, setNotifications] = useState(notificationDefaults);
   const [language, setLanguage] = useState("en-US");
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [avatarFileName, setAvatarFileName] = useState("");
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
+    deletePassword: false,
+  });
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      name: "",
-      phone: "",
-      bio: "",
-      avatarUrl: "",
-    },
+    defaultValues: { name: "", phone: "", bio: "" },
   });
 
   const passwordForm = useForm<z.infer<typeof passwordSchema>>({
@@ -204,25 +247,11 @@ export function Settings() {
       name: user.name ?? "",
       phone: user.phone ?? "",
       bio: user.bio ?? "",
-      avatarUrl: user.avatarUrl ?? "",
     });
-
-    setNotifications({
-      marketShifts:
-        user.notifications?.marketShifts ?? notificationDefaults.marketShifts,
-      techTrends:
-        user.notifications?.techTrends ?? notificationDefaults.techTrends,
-      risks: user.notifications?.risks ?? notificationDefaults.risks,
-      opportunities:
-        user.notifications?.opportunities ?? notificationDefaults.opportunities,
-      weeklyDigest:
-        user.notifications?.weeklyDigest ?? notificationDefaults.weeklyDigest,
-      analysisComplete:
-        user.notifications?.analysisComplete ??
-        notificationDefaults.analysisComplete,
-    });
-
     setLanguage(user.language ?? "en-US");
+    setAvatarPreview(user.avatarUrl ?? "");
+    setAvatarFileName("");
+    setAvatarError(null);
 
     if (user.theme === "light" || user.theme === "dark") {
       setTheme(user.theme);
@@ -230,31 +259,92 @@ export function Settings() {
   }, [profileForm, setTheme, user]);
 
   const userInitials = getUserInitials(profileForm.watch("name") || user?.name);
-  const avatarUrl = profileForm.watch("avatarUrl") || user?.avatarUrl || "";
 
   const syncUser = (nextUser: NonNullable<typeof user>) => {
     queryClient.setQueryData(getGetMeQueryKey(), nextUser);
   };
 
+  const openAvatarPicker = () => {
+    avatarFileInputRef.current?.click();
+  };
+
+  const handleAvatarFileChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    const extension = getFileExtension(file.name);
+    if (
+      !ALLOWED_AVATAR_EXTENSIONS.includes(extension) ||
+      !ALLOWED_AVATAR_MIME_TYPES.includes(file.type)
+    ) {
+      setAvatarError("Please choose a JPG, PNG, WEBP, or GIF image.");
+      toast({
+        variant: "destructive",
+        title: "Invalid image type",
+        description: "Choose a JPG, PNG, WEBP, or GIF file.",
+      });
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_FILE_SIZE) {
+      setAvatarError("Image must be 2 MB or smaller.");
+      toast({
+        variant: "destructive",
+        title: "Image too large",
+        description: "Choose an image that is 2 MB or smaller.",
+      });
+      return;
+    }
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setAvatarPreview(dataUrl);
+      setAvatarFileName(file.name);
+      setAvatarError(null);
+    } catch {
+      setAvatarError("Could not read the selected image.");
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: "Could not read the selected image.",
+      });
+    }
+  };
+
   const handleProfileSave = profileForm.handleSubmit((values) => {
+    const previousAvatar = user?.avatarUrl ?? "";
+
     updateMeMutation.mutate(
       {
         data: {
           name: values.name.trim(),
           phone: values.phone?.trim() ? values.phone.trim() : null,
           bio: values.bio?.trim() ? values.bio.trim() : null,
-          avatarUrl: values.avatarUrl?.trim() ? values.avatarUrl.trim() : null,
+          avatarUrl: avatarPreview || null,
         },
       },
       {
         onSuccess: (updatedUser) => {
           syncUser(updatedUser);
+          profileForm.reset({
+            name: updatedUser.name ?? "",
+            phone: updatedUser.phone ?? "",
+            bio: updatedUser.bio ?? "",
+          });
+          setAvatarPreview(updatedUser.avatarUrl ?? "");
+          setAvatarFileName("");
+          setAvatarError(null);
           toast({
-            title: "Profile saved",
+            title: "Profile updated",
             description: "Your changes were saved immediately.",
           });
         },
         onError: (error) => {
+          setAvatarPreview(previousAvatar);
           toast({
             variant: "destructive",
             title: "Profile update failed",
@@ -323,32 +413,6 @@ export function Settings() {
     );
   };
 
-  const handleToggleNotification = (key: NotificationKey, value: boolean) => {
-    const previous = notifications;
-    const nextNotifications = { ...previous, [key]: value };
-    setNotifications(nextNotifications);
-
-    updateMeMutation.mutate(
-      { data: { notifications: nextNotifications } },
-      {
-        onSuccess: (updatedUser) => {
-          syncUser(updatedUser);
-        },
-        onError: (error) => {
-          setNotifications(previous);
-          toast({
-            variant: "destructive",
-            title: "Notification update failed",
-            description: readError(
-              error,
-              "Could not save notification settings.",
-            ),
-          });
-        },
-      },
-    );
-  };
-
   const handlePasswordChange = passwordForm.handleSubmit((values) => {
     changePasswordMutation.mutate(
       {
@@ -387,7 +451,7 @@ export function Settings() {
         onSuccess: () => {
           queryClient.clear();
           toast({
-            title: "Account deleted",
+            title: "Profile deleted",
             description: "Your account and related data were removed.",
           });
           setLocation("/auth");
@@ -395,7 +459,7 @@ export function Settings() {
         onError: (error) => {
           toast({
             variant: "destructive",
-            title: "Account deletion failed",
+            title: "Profile deletion failed",
             description: readError(error, "Could not delete your account."),
           });
         },
@@ -404,7 +468,6 @@ export function Settings() {
   });
 
   const isProfileSaving = updateMeMutation.isPending;
-  const isThemeSaving = updateMeMutation.isPending;
   const isPasswordSaving = changePasswordMutation.isPending;
   const isDeleteSaving = deleteMeMutation.isPending;
 
@@ -427,9 +490,9 @@ export function Settings() {
         </CardHeader>
         <CardContent className="pt-6 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <Avatar className="h-16 w-16 ring-2 ring-primary/15">
+            <Avatar className="h-16 w-16 ring-2 ring-primary/15 shrink-0">
               <AvatarImage
-                src={avatarUrl || undefined}
+                src={avatarPreview || undefined}
                 alt={user?.name || "User avatar"}
               />
               <AvatarFallback className="bg-primary/10 text-primary font-bold">
@@ -437,16 +500,49 @@ export function Settings() {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {user?.name || "Your profile"}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user?.email || "Signed-in account email"}
-                </p>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {user?.name || "Your profile"}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.email || "Signed-in account email"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    className="gap-2"
+                    onClick={openAvatarPicker}
+                  >
+                    <Upload className="w-4 h-4" />
+                    Choose Avatar
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    JPG, PNG, WEBP, or GIF up to 2 MB
+                  </span>
+                </div>
+                {avatarFileName && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    Selected: {avatarFileName}
+                  </p>
+                )}
+                {avatarError && (
+                  <p className="text-xs text-destructive">{avatarError}</p>
+                )}
               </div>
             </div>
           </div>
+
+          <input
+            ref={avatarFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+            className="hidden"
+            onChange={handleAvatarFileChange}
+          />
 
           <form onSubmit={handleProfileSave} className="space-y-5">
             <div className="space-y-1.5">
@@ -497,26 +593,6 @@ export function Settings() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Avatar URL
-              </label>
-              <Input
-                {...profileForm.register("avatarUrl")}
-                placeholder="https://example.com/avatar.jpg"
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              <p className="text-xs text-muted-foreground">
-                Use a direct image URL. The avatar updates everywhere after
-                saving.
-              </p>
-              {profileForm.formState.errors.avatarUrl && (
-                <p className="text-xs text-destructive">
-                  {profileForm.formState.errors.avatarUrl.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Bio
               </label>
               <textarea
@@ -544,7 +620,7 @@ export function Settings() {
                 ) : (
                   <Save className="w-4 h-4" />
                 )}
-                Save Profile
+                Update Profile
               </Button>
             </div>
           </form>
@@ -556,7 +632,7 @@ export function Settings() {
           <SectionHeader
             icon={Globe}
             title="Preferences"
-            description="Control appearance and notification behavior."
+            description="Control appearance and language settings."
           />
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
@@ -570,7 +646,6 @@ export function Settings() {
             <button
               type="button"
               onClick={handleThemeToggle}
-              disabled={isThemeSaving}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted text-sm font-medium hover:bg-muted/70 transition-colors disabled:opacity-60"
             >
               {theme === "dark" ? (
@@ -587,7 +662,7 @@ export function Settings() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between gap-4 py-3 border-b border-border">
+          <div className="flex items-center justify-between gap-4 py-3">
             <div>
               <p className="text-sm font-medium text-foreground">Language</p>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -606,57 +681,6 @@ export function Settings() {
               ))}
             </select>
           </div>
-
-          <ToggleSwitch
-            checked={notifications.marketShifts}
-            onChange={(value) =>
-              handleToggleNotification("marketShifts", value)
-            }
-            label="Market Shift Alerts"
-            description="Notified when significant market changes affect your ideas."
-            disabled={updateMeMutation.isPending}
-          />
-          <ToggleSwitch
-            checked={notifications.techTrends}
-            onChange={(value) => handleToggleNotification("techTrends", value)}
-            label="Tech Trend Updates"
-            description="Emerging technology signals relevant to your portfolio."
-            disabled={updateMeMutation.isPending}
-          />
-          <ToggleSwitch
-            checked={notifications.risks}
-            onChange={(value) => handleToggleNotification("risks", value)}
-            label="Risk Alerts"
-            description="Regulatory or competitive threats to your ideas."
-            disabled={updateMeMutation.isPending}
-          />
-          <ToggleSwitch
-            checked={notifications.opportunities}
-            onChange={(value) =>
-              handleToggleNotification("opportunities", value)
-            }
-            label="Opportunity Signals"
-            description="Proactive signals for new market windows."
-            disabled={updateMeMutation.isPending}
-          />
-          <ToggleSwitch
-            checked={notifications.weeklyDigest}
-            onChange={(value) =>
-              handleToggleNotification("weeklyDigest", value)
-            }
-            label="Weekly Digest Email"
-            description="A curated summary of all AI insights, every Monday."
-            disabled={updateMeMutation.isPending}
-          />
-          <ToggleSwitch
-            checked={notifications.analysisComplete}
-            onChange={(value) =>
-              handleToggleNotification("analysisComplete", value)
-            }
-            label="Analysis Complete"
-            description="Notify when an idea finishes AI analysis."
-            disabled={updateMeMutation.isPending}
-          />
         </CardContent>
       </Card>
 
@@ -670,53 +694,65 @@ export function Settings() {
         </CardHeader>
         <CardContent className="pt-6">
           <form onSubmit={handlePasswordChange} className="space-y-4 max-w-xl">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Current Password
-              </label>
-              <Input
-                type="password"
-                {...passwordForm.register("currentPassword")}
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              {passwordForm.formState.errors.currentPassword && (
-                <p className="text-xs text-destructive">
-                  {passwordForm.formState.errors.currentPassword.message}
-                </p>
-              )}
-            </div>
+            <PasswordField
+              label="Current Password"
+              placeholder="Enter current password"
+              value={passwordForm.watch("currentPassword")}
+              onChange={(value) =>
+                passwordForm.setValue("currentPassword", value, {
+                  shouldValidate: true,
+                })
+              }
+              error={passwordForm.formState.errors.currentPassword?.message}
+              visible={passwordVisibility.currentPassword}
+              onToggleVisibility={() =>
+                setPasswordVisibility((prev) => ({
+                  ...prev,
+                  currentPassword: !prev.currentPassword,
+                }))
+              }
+              autoComplete="current-password"
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                New Password
-              </label>
-              <Input
-                type="password"
-                {...passwordForm.register("newPassword")}
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              {passwordForm.formState.errors.newPassword && (
-                <p className="text-xs text-destructive">
-                  {passwordForm.formState.errors.newPassword.message}
-                </p>
-              )}
-            </div>
+            <PasswordField
+              label="New Password"
+              placeholder="Create a new password"
+              value={passwordForm.watch("newPassword")}
+              onChange={(value) =>
+                passwordForm.setValue("newPassword", value, {
+                  shouldValidate: true,
+                })
+              }
+              error={passwordForm.formState.errors.newPassword?.message}
+              visible={passwordVisibility.newPassword}
+              onToggleVisibility={() =>
+                setPasswordVisibility((prev) => ({
+                  ...prev,
+                  newPassword: !prev.newPassword,
+                }))
+              }
+              autoComplete="new-password"
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Confirm New Password
-              </label>
-              <Input
-                type="password"
-                {...passwordForm.register("confirmPassword")}
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              {passwordForm.formState.errors.confirmPassword && (
-                <p className="text-xs text-destructive">
-                  {passwordForm.formState.errors.confirmPassword.message}
-                </p>
-              )}
-            </div>
+            <PasswordField
+              label="Confirm New Password"
+              placeholder="Re-enter the new password"
+              value={passwordForm.watch("confirmPassword")}
+              onChange={(value) =>
+                passwordForm.setValue("confirmPassword", value, {
+                  shouldValidate: true,
+                })
+              }
+              error={passwordForm.formState.errors.confirmPassword?.message}
+              visible={passwordVisibility.confirmPassword}
+              onToggleVisibility={() =>
+                setPasswordVisibility((prev) => ({
+                  ...prev,
+                  confirmPassword: !prev.confirmPassword,
+                }))
+              }
+              autoComplete="new-password"
+            />
 
             <div className="flex justify-end pt-2">
               <Button
@@ -742,29 +778,33 @@ export function Settings() {
           <SectionHeader
             icon={Trash2}
             title="Danger Zone"
-            description="Irreversible action. Confirm carefully before deleting your account."
+            description="Irreversible action. Confirm carefully before deleting your profile."
           />
         </CardHeader>
         <CardContent className="pt-6">
           <form onSubmit={handleDeleteAccount} className="space-y-4 max-w-xl">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Current Password
-              </label>
-              <Input
-                type="password"
-                {...deleteForm.register("currentPassword")}
-                className="h-10 bg-background border-border focus-visible:ring-destructive/30 focus-visible:border-destructive"
-              />
-              {deleteForm.formState.errors.currentPassword && (
-                <p className="text-xs text-destructive">
-                  {deleteForm.formState.errors.currentPassword.message}
-                </p>
-              )}
-            </div>
+            <PasswordField
+              label="Current Password"
+              placeholder="Enter current password"
+              value={deleteForm.watch("currentPassword")}
+              onChange={(value) =>
+                deleteForm.setValue("currentPassword", value, {
+                  shouldValidate: true,
+                })
+              }
+              error={deleteForm.formState.errors.currentPassword?.message}
+              visible={passwordVisibility.deletePassword}
+              onToggleVisibility={() =>
+                setPasswordVisibility((prev) => ({
+                  ...prev,
+                  deletePassword: !prev.deletePassword,
+                }))
+              }
+              autoComplete="current-password"
+            />
 
             <p className="text-xs text-muted-foreground">
-              This permanently deletes your account, ideas, analyses, and
+              This permanently deletes your profile, ideas, analyses, and
               related content.
             </p>
 
@@ -781,7 +821,7 @@ export function Settings() {
                 ) : (
                   <Trash2 className="w-4 h-4" />
                 )}
-                Delete Account
+                Delete Profile
               </Button>
             </div>
           </form>
