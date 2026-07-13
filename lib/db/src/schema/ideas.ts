@@ -1,6 +1,6 @@
 import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { usersTable } from "./users";
 
 export const ideasTable = pgTable("ideas", {
@@ -16,5 +16,6 @@ export const ideasTable = pgTable("ideas", {
 });
 
 export const insertIdeaSchema = createInsertSchema(ideasTable).omit({ id: true, createdAt: true, updatedAt: true });
+// @ts-expect-error - compatibility issue between drizzle-zod and zod v3.25
 export type InsertIdea = z.infer<typeof insertIdeaSchema>;
 export type Idea = typeof ideasTable.$inferSelect;

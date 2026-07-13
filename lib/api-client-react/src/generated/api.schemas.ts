@@ -26,12 +26,56 @@ export interface LoginBody {
   password: string;
 }
 
+export interface UserNotifications {
+  marketShifts: boolean;
+  techTrends: boolean;
+  risks: boolean;
+  opportunities: boolean;
+  weeklyDigest: boolean;
+  analysisComplete: boolean;
+}
+
+export interface UpdateMeBody {
+  name?: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
+  avatarUrl?: string | null;
+  /** @nullable */
+  theme?: string | null;
+  /** @nullable */
+  language?: string | null;
+  notifications?: UserNotifications;
+}
+
+export interface ChangePasswordBody {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface DeleteMeBody {
+  currentPassword: string;
+}
+
 export interface AuthUser {
   id: number;
   email: string;
   name: string;
   /** @nullable */
   domain?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
+  avatarUrl?: string | null;
+  /** @nullable */
+  theme?: string | null;
+  /** @nullable */
+  language?: string | null;
+  notifications?: UserNotifications;
   createdAt: string;
 }
 

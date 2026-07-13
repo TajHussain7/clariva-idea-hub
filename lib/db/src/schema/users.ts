@@ -1,6 +1,15 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
+
+export interface UserNotifications {
+  marketShifts: boolean;
+  techTrends: boolean;
+  risks: boolean;
+  opportunities: boolean;
+  weeklyDigest: boolean;
+  analysisComplete: boolean;
+}
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -8,10 +17,33 @@ export const usersTable = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
   domain: text("domain"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  phone: text("phone"),
+  bio: text("bio"),
+  avatarUrl: text("avatar_url"),
+  theme: text("theme").default("light"),
+  language: text("language").default("en-US"),
+  notifications: jsonb("notifications").$type<UserNotifications>().default({
+    marketShifts: true,
+    techTrends: true,
+    risks: true,
+    opportunities: true,
+    weeklyDigest: false,
+    analysisComplete: true,
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
-export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserSchema = createInsertSchema(usersTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+// @ts-expect-error - compatibility issue between drizzle-zod and zod v3.25
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;

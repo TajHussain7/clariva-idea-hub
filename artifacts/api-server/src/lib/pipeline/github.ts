@@ -41,14 +41,11 @@ function buildSearchQuery(title: string, description: string): string {
   return keywords.slice(0, 5).join(" ");
 }
 
-export async function fetchGithubData(
-  title: string,
-  description: string
-): Promise<GithubResult> {
-  const query = buildSearchQuery(title, description);
-
+async function executeGithubSearch(query: string): Promise<{ totalCount: number; items: any[] }> {
   try {
-    const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=8`;
+    const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query + " is:public")}&sort=stars&order=desc&per_page=12`;
+    
+    logger.info({ query }, "Executing GitHub Search API query");
 
     const response = await fetch(url, {
       headers: {
@@ -62,56 +59,86 @@ export async function fetchGithubData(
     });
 
     if (!response.ok) {
-      logger.warn({ status: response.status }, "GitHub API non-OK response");
-      return { repos: [], totalCount: 0, topLanguages: [], avgStars: 0 };
+      logger.warn({ status: response.status, statusText: response.statusText }, "GitHub API non-OK response");
+      return { totalCount: 0, items: [] };
     }
 
     const data = (await response.json()) as {
       total_count: number;
-      items: Array<{
-        name: string;
-        owner: { login: string };
-        stargazers_count: number;
-        description: string | null;
-        language: string | null;
-        html_url: string;
-      }>;
+      items: any[];
     };
-
-    const repos: GithubRepo[] = (data.items ?? []).map((item) => ({
-      name: item.name,
-      org: item.owner.login,
-      stars: item.stargazers_count,
-      desc: item.description ?? "",
-      lang: item.language ?? "Unknown",
-      url: item.html_url,
-    }));
-
-    const langCounts: Record<string, number> = {};
-    for (const repo of repos) {
-      if (repo.lang && repo.lang !== "Unknown") {
-        langCounts[repo.lang] = (langCounts[repo.lang] ?? 0) + 1;
-      }
-    }
-
-    const topLanguages = Object.entries(langCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([lang]) => lang);
-
-    const avgStars =
-      repos.length > 0
-        ? Math.round(repos.reduce((s, r) => s + r.stars, 0) / repos.length)
-        : 0;
-
     return {
-      repos: repos.slice(0, 6),
       totalCount: data.total_count ?? 0,
-      topLanguages,
-      avgStars,
+      items: data.items ?? [],
     };
   } catch (err) {
-    logger.warn({ err }, "GitHub API fetch failed");
-    return { repos: [], totalCount: 0, topLanguages: [], avgStars: 0 };
+    logger.warn({ err, query }, "GitHub API query execution failed");
+    return { totalCount: 0, items: [] };
   }
+}
+
+export async function fetchGithubData(
+  title: string,
+  description: string
+): Promise<GithubResult> {
+  const specificQuery = buildSearchQuery(title, description);
+  
+  // 1. Try specific query
+  let { totalCount, items } = await executeGithubSearch(specificQuery);
+  
+  // 2. Fallback: If 0 or very few results found, try a broader query using title keywords
+  if (items.length < 3) {
+    const titleStopWords = new Set(["a", "an", "the", "and", "or", "to", "for", "with", "of", "in", "on", "at", "is", "hub", "idea", "creative"]);
+    const titleQuery = title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !titleStopWords.has(w))
+      .slice(0, 4)
+      .join(" ");
+
+    if (titleQuery && titleQuery !== specificQuery) {
+      logger.info({ originalQuery: specificQuery, fallbackQuery: titleQuery }, "GitHub specific search returned few results. Trying fallback title search.");
+      const fallbackResult = await executeGithubSearch(titleQuery);
+      if (fallbackResult.items.length > items.length) {
+        totalCount = fallbackResult.totalCount;
+        items = fallbackResult.items;
+      }
+    }
+  }
+
+  const repos: GithubRepo[] = items.map((item) => ({
+    name: item.name,
+    org: item.owner?.login ?? "Unknown",
+    stars: item.stargazers_count ?? 0,
+    desc: item.description ?? "",
+    lang: item.language ?? "Unknown",
+    url: item.html_url ?? "",
+  }));
+
+  const langCounts: Record<string, number> = {};
+  for (const repo of repos) {
+    if (repo.lang && repo.lang !== "Unknown") {
+      langCounts[repo.lang] = (langCounts[repo.lang] ?? 0) + 1;
+    }
+  }
+
+  const topLanguages = Object.entries(langCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([lang]) => lang);
+
+  const avgStars =
+    repos.length > 0
+      ? Math.round(repos.reduce((s, r) => s + r.stars, 0) / repos.length)
+      : 0;
+
+  logger.info({ reposFound: repos.length, totalCount }, "GitHub search completed");
+
+  return {
+    repos: repos.slice(0, 8),
+    totalCount,
+    topLanguages,
+    avgStars,
+  };
 }

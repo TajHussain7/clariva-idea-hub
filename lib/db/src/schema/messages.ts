@@ -1,6 +1,6 @@
 import { integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { conversations } from "./conversations";
 
@@ -20,4 +20,5 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 });
 
 export type Message = typeof messages.$inferSelect;
+// @ts-expect-error - compatibility issue between drizzle-zod and zod v3.25
 export type InsertMessage = z.infer<typeof insertMessageSchema>;

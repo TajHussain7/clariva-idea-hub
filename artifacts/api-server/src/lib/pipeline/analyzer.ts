@@ -1,4 +1,4 @@
-import { openrouter } from "@workspace/integrations-openrouter-ai";
+import { routeCompletion } from "@workspace/integrations-openrouter-ai";
 import { fetchGithubData, type GithubRepo } from "./github.js";
 import { fetchWikipediaContext } from "./wikipedia.js";
 import { fetchDuckDuckGoContext } from "./duckduckgo.js";
@@ -36,7 +36,12 @@ interface AIOutput {
 }
 
 function buildSystemPrompt(): string {
-  return `You are Clariva's idea validation engine. You receive rich, pre-gathered context about a startup idea and produce a structured JSON analysis. Your analysis must be grounded in the provided data — do not hallucinate metrics or competitors not mentioned. Be direct, specific, and actionable.
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  return `You are Clariva's idea validation engine. You receive rich, pre-gathered context about a startup idea and produce a structured JSON analysis. Your analysis must be grounded in the provided data and current as of ${currentDate} — do not hallucinate metrics or competitors not mentioned. Be direct, specific, and actionable.
 
 Always respond with ONLY valid JSON — no markdown, no explanation, no code blocks. The JSON must match this exact structure:
 {
@@ -195,10 +200,14 @@ export async function analyzeIdea(
   const ruleData = runRuleEngine(title, description, domain, complexity);
 
   const marketParts: string[] = [];
-  if (wikiData.found) marketParts.push(wikiData.summary.slice(0, 200));
-  if (ddgData.abstractText) marketParts.push(ddgData.abstractText.slice(0, 200));
+  if (wikiData.found) {
+    marketParts.push(`Wikipedia summary: ${wikiData.summary.slice(0, 600)} (Source URL: ${wikiData.pageUrl})`);
+  }
+  if (ddgData.abstractText) {
+    marketParts.push(`DuckDuckGo abstract: ${ddgData.abstractText.slice(0, 400)}`);
+  }
   if (ddgData.relatedTopics.length > 0) {
-    marketParts.push(`Related: ${ddgData.relatedTopics.slice(0, 4).join("; ")}`);
+    marketParts.push(`Related search topics: ${ddgData.relatedTopics.slice(0, 6).join("; ")}`);
   }
   const marketContext = marketParts.join(" | ") || "No external market context found.";
 
@@ -208,19 +217,27 @@ export async function analyzeIdea(
       githubData, wikiData, ddgData, ruleData
     );
 
-    const completion = await openrouter.chat.completions.create({
-      model: "meta-llama/llama-3.3-70b-instruct:free",
-      max_tokens: 8192,
-      temperature: 0.3,
+    logger.info({ title }, "Sending idea validation request to AI Router");
+
+    const result = await routeCompletion({
       messages: [
         { role: "system", content: buildSystemPrompt() },
         { role: "user", content: prompt },
       ],
+      max_tokens: 4096,
+      temperature: 0.3,
     });
 
-    const raw = completion.choices[0]?.message?.content ?? "";
-    logger.debug({ rawLength: raw.length }, "AI response received");
+    logger.info(
+      {
+        modelUsed: result.modelUsed,
+        slotUsed: result.slotUsed,
+        attemptsTaken: result.attemptsTaken,
+      },
+      "AI analysis response received from Router"
+    );
 
+    const raw = result.content;
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       logger.warn("No JSON found in AI response, using fallback");
@@ -254,7 +271,8 @@ export async function analyzeIdea(
       verdictSummary: typeof parsed.verdictSummary === "string" ? parsed.verdictSummary : "",
     };
   } catch (err) {
-    logger.error({ err }, "AI analysis failed, using fallback scores");
+    logger.error({ err }, "AI analysis failed across all slots in router, using fallback scores");
     return { ...fallbackResult(githubData, ruleData), marketContext };
   }
 }
+

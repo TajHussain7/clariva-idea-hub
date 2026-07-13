@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - staging
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Build and verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Run available tests
+        run: pnpm -r --if-present run test
+
+      - name: Build frontend
+        run: pnpm --filter @workspace/clariva-web run build
+
+      - name: Build backend
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Build backend Docker image
+        run: docker build -f artifacts/api-server/Dockerfile .
+
+      - name: Build frontend Docker image
+        run: docker build --build-arg VITE_API_URL=http://localhost:3000 -f artifacts/clariva-web/Dockerfile .

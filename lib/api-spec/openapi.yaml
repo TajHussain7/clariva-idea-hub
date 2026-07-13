@@ -113,6 +113,89 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: updateMe
+      tags: [auth]
+      summary: Update current authenticated user profile/settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeBody"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/me/password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Update the current authenticated user's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordBody"
+      responses:
+        "204":
+          description: Password updated
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/me/delete:
+    post:
+      operationId: deleteMe
+      tags: [auth]
+      summary: Delete the current authenticated account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteMeBody"
+      responses:
+        "204":
+          description: Account deleted
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
   /ideas:
     get:
@@ -341,6 +424,18 @@ components:
           type: string
         domain:
           type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        theme:
+          type: ["string", "null"]
+        language:
+          type: ["string", "null"]
+        notifications:
+          $ref: "#/components/schemas/UserNotifications"
         createdAt:
           type: string
           format: date-time
@@ -349,6 +444,66 @@ components:
         - email
         - name
         - createdAt
+
+    UserNotifications:
+      type: object
+      properties:
+        marketShifts:
+          type: boolean
+        techTrends:
+          type: boolean
+        risks:
+          type: boolean
+        opportunities:
+          type: boolean
+        weeklyDigest:
+          type: boolean
+        analysisComplete:
+          type: boolean
+      required:
+        - marketShifts
+        - techTrends
+        - risks
+        - opportunities
+        - weeklyDigest
+        - analysisComplete
+
+    UpdateMeBody:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        theme:
+          type: ["string", "null"]
+        language:
+          type: ["string", "null"]
+        notifications:
+          $ref: "#/components/schemas/UserNotifications"
+
+    ChangePasswordBody:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+      required:
+        - currentPassword
+        - newPassword
+
+    DeleteMeBody:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+      required:
+        - currentPassword
 
     CreateIdeaBody:
       type: object

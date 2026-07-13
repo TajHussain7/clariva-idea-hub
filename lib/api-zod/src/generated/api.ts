@@ -32,11 +32,45 @@ export const LoginBody = zod.object({
   password: zod.string(),
 });
 
+export const UserNotifications = zod.object({
+  marketShifts: zod.boolean(),
+  techTrends: zod.boolean(),
+  risks: zod.boolean(),
+  opportunities: zod.boolean(),
+  weeklyDigest: zod.boolean(),
+  analysisComplete: zod.boolean(),
+});
+
+export const UpdateMeBody = zod.object({
+  name: zod.string().optional(),
+  phone: zod.string().nullish(),
+  bio: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  theme: zod.string().nullish(),
+  language: zod.string().nullish(),
+  notifications: UserNotifications.optional(),
+});
+
+export const ChangePasswordBody = zod.object({
+  currentPassword: zod.string(),
+  newPassword: zod.string(),
+});
+
+export const DeleteMeBody = zod.object({
+  currentPassword: zod.string(),
+});
+
 export const LoginResponse = zod.object({
   id: zod.number(),
   email: zod.string(),
   name: zod.string(),
   domain: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  bio: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  theme: zod.string().nullish(),
+  language: zod.string().nullish(),
+  notifications: UserNotifications.nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -48,6 +82,12 @@ export const GetMeResponse = zod.object({
   email: zod.string(),
   name: zod.string(),
   domain: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  bio: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  theme: zod.string().nullish(),
+  language: zod.string().nullish(),
+  notifications: UserNotifications.nullish(),
   createdAt: zod.coerce.date(),
 });
 

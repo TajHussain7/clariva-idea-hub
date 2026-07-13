@@ -12,6 +12,8 @@ import { Dashboard } from "@/pages/dashboard";
 import { Submit } from "@/pages/submit";
 import { Results } from "@/pages/results";
 import { Compare } from "@/pages/compare";
+import { Insights } from "@/pages/insights";
+import { Settings } from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -49,6 +51,12 @@ function Router() {
       </Route>
       <Route path="/compare">
         <Layout><Compare /></Layout>
+      </Route>
+      <Route path="/insights">
+        <Layout><Insights /></Layout>
+      </Route>
+      <Route path="/settings">
+        <Layout><Settings /></Layout>
       </Route>
       <Route component={NotFound} />
     </Switch>

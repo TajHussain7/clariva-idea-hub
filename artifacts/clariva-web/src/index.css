@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -57,6 +57,16 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
+  /* Precision Intelligence custom tokens */
+  --color-pi-sidebar-bg: var(--pi-sidebar-bg);
+  --color-pi-cyan: var(--pi-cyan);
+  --color-pi-cyan-dim: var(--pi-cyan-dim);
+  --color-pi-surface-container: var(--pi-surface-container);
+  --color-pi-surface-container-low: var(--pi-surface-container-low);
+  --color-pi-on-surface-variant: var(--pi-on-surface-variant);
+  --color-pi-outline: var(--pi-outline);
+  --color-pi-outline-variant: var(--pi-outline-variant);
+
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
@@ -65,81 +75,114 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
 }
 
-/* LIGHT MODE (default) */
+/* =============================================
+   PRECISION INTELLIGENCE — LIGHT MODE (default)
+   ============================================= */
 :root {
   --button-outline: rgba(0,0,0, .08);
   --badge-outline: rgba(0,0,0, .06);
   --opaque-button-border-intensity: -6;
 
-  --elevate-1: rgba(0,0,0, .04);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .06);
 
-  --background: 210 20% 98%;
-  --foreground: 222 47% 11%;
+  /* Background: #f9f9ff */
+  --background: 240 100% 99%;
+  /* On-background / foreground: #141b2b */
+  --foreground: 222 40% 12%;
 
-  --border: 214 32% 88%;
+  /* Borders / outline: #c7c4d8 */
+  --border: 247 14% 81%;
+  /* Card surface: #ffffff */
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 88%;
+  --card-foreground: 222 40% 12%;
+  --card-border: 247 14% 88%;
 
-  --sidebar: 0 0% 100%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-border: 214 32% 88%;
-  --sidebar-primary: 235 86% 60%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 210 20% 94%;
-  --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-ring: 235 86% 60%;
-
+  /* Popover */
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 88%;
+  --popover-foreground: 222 40% 12%;
+  --popover-border: 247 14% 88%;
 
-  --primary: 235 86% 60%;
+  /* Primary: #3525cd (deep indigo) */
+  --primary: 245 73% 47%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 20% 94%;
-  --secondary-foreground: 222 47% 11%;
+  /* Primary container: #4f46e5 */
+  --primary-container: 245 79% 57%;
 
-  --muted: 210 20% 94%;
-  --muted-foreground: 215 16% 47%;
+  /* Secondary: #f1f3ff (light surface-container-low) */
+  --secondary: 240 100% 97%;
+  --secondary-foreground: 222 40% 12%;
 
-  --accent: 190 80% 40%;
+  /* Muted: surface-container #e9edff */
+  --muted: 234 100% 95%;
+  --muted-foreground: 247 12% 38%;
+
+  /* Accent: #00687a (cyan secondary) */
+  --accent: 188 100% 24%;
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 72% 51%;
+  /* Destructive: #ba1a1a */
+  --destructive: 0 74% 41%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 214 32% 88%;
-  --ring: 235 86% 60%;
+  /* Input border: outline-variant #c7c4d8 */
+  --input: 247 14% 81%;
+  --ring: 245 73% 47%;
 
-  --chart-1: 235 86% 60%;
-  --chart-2: 190 80% 40%;
-  --chart-3: 320 70% 50%;
-  --chart-4: 280 60% 55%;
-  --chart-5: 160 60% 40%;
+  /* Charts */
+  --chart-1: 245 73% 47%;
+  --chart-2: 188 100% 24%;
+  --chart-3: 25 100% 51%;
+  --chart-4: 271 65% 55%;
+  --chart-5: 142 62% 40%;
 
+  /* Sidebar — dark theme matching Precision Intelligence #0D0C22 */
+  --sidebar: 247 46% 9%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 247 30% 16%;
+  --sidebar-primary: 184 100% 75%;    /* Cyan highlight #57dffe */
+  --sidebar-primary-foreground: 247 46% 9%;
+  --sidebar-accent: 247 30% 20%;
+  --sidebar-accent-foreground: 0 0% 88%;
+  --sidebar-ring: 184 100% 75%;
+
+  /* Precision Intelligence custom */
+  --pi-sidebar-bg: #0D0C22;
+  --pi-cyan: #57dffe;
+  --pi-cyan-dim: #4cd7f6;
+  --pi-surface-container: #e9edff;
+  --pi-surface-container-low: #f1f3ff;
+  --pi-on-surface-variant: #464555;
+  --pi-outline: #777587;
+  --pi-outline-variant: #c7c4d8;
+
+  /* Font */
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', monospace;
-  --radius: 0.3rem;
-  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.06);
-  --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.06);
-  --shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.06), 0px 1px 2px -1px hsl(0 0% 0% / 0.06);
-  --shadow: 0px 1px 3px 0px hsl(0 0% 0% / 0.08), 0px 1px 2px -1px hsl(0 0% 0% / 0.06);
-  --shadow-md: 0px 2px 6px 0px hsl(0 0% 0% / 0.08), 0px 2px 4px -1px hsl(0 0% 0% / 0.06);
-  --shadow-lg: 0px 4px 12px 0px hsl(0 0% 0% / 0.08), 0px 4px 6px -1px hsl(0 0% 0% / 0.06);
-  --shadow-xl: 0px 8px 20px 0px hsl(0 0% 0% / 0.08), 0px 8px 10px -1px hsl(0 0% 0% / 0.06);
-  --shadow-2xl: 0px 12px 32px 0px hsl(0 0% 0% / 0.08);
+
+  /* Radius — Precision Intelligence uses very soft corners */
+  --radius: 0.375rem;  /* 6px for buttons/inputs */
+
+  /* Shadows — ambient, soft */
+  --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.04);
+  --shadow-xs: 0px 1px 2px 0px rgba(0,0,0,0.05);
+  --shadow-sm: 0px 1px 3px 0px rgba(0,0,0,0.05), 0px 1px 2px -1px rgba(0,0,0,0.04);
+  --shadow: 0px 1px 3px 0px rgba(0,0,0,0.06), 0px 1px 2px -1px rgba(0,0,0,0.04);
+  --shadow-md: 0px 2px 8px 0px rgba(0,0,0,0.06), 0px 2px 4px -1px rgba(0,0,0,0.04);
+  --shadow-lg: 0px 4px 16px 0px rgba(53,37,205,0.08), 0px 4px 6px -1px rgba(0,0,0,0.04);
+  --shadow-xl: 0px 8px 24px 0px rgba(53,37,205,0.10), 0px 8px 10px -1px rgba(0,0,0,0.04);
+  --shadow-2xl: 0px 12px 40px 0px rgba(53,37,205,0.12);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
+  /* Border variants */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --primary-border: hsl(var(--primary));
   --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --secondary-border: hsl(var(--secondary));
@@ -152,7 +195,9 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
-/* DARK MODE */
+/* =============================================
+   DARK MODE
+   ============================================= */
 .dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
@@ -161,61 +206,64 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 222 47% 7%;
-  --foreground: 210 20% 98%;
+  --background: 245 35% 8%;
+  --foreground: 240 100% 97%;
 
-  --border: 217 32% 17%;
-  --card: 222 47% 9%;
-  --card-foreground: 210 20% 98%;
-  --card-border: 217 32% 17%;
+  --border: 247 25% 18%;
+  --card: 245 35% 10%;
+  --card-foreground: 240 100% 97%;
+  --card-border: 247 25% 18%;
 
-  --sidebar: 222 47% 9%;
-  --sidebar-foreground: 210 20% 98%;
-  --sidebar-border: 217 32% 17%;
-  --sidebar-primary: 235 86% 65%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 32% 17%;
-  --sidebar-accent-foreground: 210 20% 98%;
-  --sidebar-ring: 235 86% 65%;
+  --sidebar: 247 46% 6%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 247 30% 14%;
+  --sidebar-primary: 184 100% 75%;
+  --sidebar-primary-foreground: 247 46% 9%;
+  --sidebar-accent: 247 30% 16%;
+  --sidebar-accent-foreground: 0 0% 85%;
+  --sidebar-ring: 184 100% 75%;
 
-  --popover: 222 47% 9%;
-  --popover-foreground: 210 20% 98%;
-  --popover-border: 217 32% 17%;
+  --popover: 245 35% 10%;
+  --popover-foreground: 240 100% 97%;
+  --popover-border: 247 25% 18%;
 
-  --primary: 235 86% 65%;
+  --primary: 245 73% 60%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 217 32% 17%;
-  --secondary-foreground: 210 20% 98%;
+  --secondary: 247 25% 18%;
+  --secondary-foreground: 240 100% 97%;
 
-  --muted: 217 32% 17%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 247 25% 18%;
+  --muted-foreground: 247 14% 60%;
 
-  --accent: 190 90% 50%;
-  --accent-foreground: 222 47% 7%;
+  --accent: 184 100% 50%;
+  --accent-foreground: 245 35% 8%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 20% 98%;
+  --destructive: 0 62% 35%;
+  --destructive-foreground: 240 100% 97%;
 
-  --input: 217 32% 17%;
-  --ring: 235 86% 65%;
+  --input: 247 25% 18%;
+  --ring: 245 73% 60%;
 
-  --chart-1: 235 86% 65%;
-  --chart-2: 190 90% 50%;
-  --chart-3: 320 70% 50%;
-  --chart-4: 280 60% 60%;
-  --chart-5: 160 60% 45%;
+  --chart-1: 245 73% 62%;
+  --chart-2: 184 100% 50%;
+  --chart-3: 25 100% 55%;
+  --chart-4: 271 65% 60%;
+  --chart-5: 142 62% 45%;
 
-  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
-  --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
-  --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 1px 2px -1px hsl(0 0% 0% / 0.5);
-  --shadow: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 1px 2px -1px hsl(0 0% 0% / 0.5);
-  --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 2px 4px -1px hsl(0 0% 0% / 0.5);
-  --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 4px 6px -1px hsl(0 0% 0% / 0.5);
-  --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.5), 0px 8px 10px -1px hsl(0 0% 0% / 0.5);
-  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
+  --shadow-2xs: 0px 2px 0px 0px rgba(0,0,0,0.5);
+  --shadow-xs: 0px 2px 0px 0px rgba(0,0,0,0.5);
+  --shadow-sm: 0px 2px 0px 0px rgba(0,0,0,0.5), 0px 1px 2px -1px rgba(0,0,0,0.5);
+  --shadow: 0px 2px 0px 0px rgba(0,0,0,0.5), 0px 1px 2px -1px rgba(0,0,0,0.5);
+  --shadow-md: 0px 2px 0px 0px rgba(0,0,0,0.5), 0px 2px 4px -1px rgba(0,0,0,0.5);
+  --shadow-lg: 0px 2px 0px 0px rgba(0,0,0,0.5), 0px 4px 6px -1px rgba(0,0,0,0.5);
+  --shadow-xl: 0px 2px 0px 0px rgba(0,0,0,0.5), 0px 8px 10px -1px rgba(0,0,0,0.5);
+  --shadow-2xl: 0px 2px 0px 0px rgba(0,0,0,0.5);
 }
 
+/* =============================================
+   BASE LAYER
+   ============================================= */
 @layer base {
   * {
     @apply border-border;
@@ -223,79 +271,91 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
   }
 }
 
-/**
- * Using the elevate system.
- * Automatic contrast adjustment.
- *
- * <element className="hover-elevate" />
- * <element className="active-elevate-2" />
- *
- * // Using the tailwind utility when a data attribute is "on"
- * <element className="toggle-elevate data-[state=on]:toggle-elevated" />
- * // Or manually controlling the toggle state
- * <element className="toggle-elevate toggle-elevated" />
- *
- * Elevation systems have to handle many states.
- * - not-hovered, vs. hovered vs. active  (three mutually exclusive states)
- * - toggled or not
- * - focused or not (this is not handled with these utilities)
- *
- * Even without handling focused or not, this is six possible combinations that
- * need to be distinguished from eachother visually.
- */
+/* =============================================
+   PRECISION INTELLIGENCE COMPONENT UTILITIES
+   ============================================= */
 @layer utilities {
 
-  /* Hide ugly search cancel button in Chrome until we can style it properly */
+  /* Search cancel button */
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }
 
-  /* Placeholder styling for contentEditable div */
+  /* Contenteditable placeholder */
   [contenteditable][data-placeholder]:empty::before {
     content: attr(data-placeholder);
     color: hsl(var(--muted-foreground));
     pointer-events: none;
   }
 
-  /* .no-default-hover-elevate/no-default-active-elevate is an escape hatch so consumers of
-   * buttons/badges can remove the automatic brightness adjustment on interactions
-   * and program their own. */
   .no-default-hover-elevate {}
-
   .no-default-active-elevate {}
 
+  /* --- Sidebar nav active state (Precision Intelligence) --- */
+  .pi-nav-active {
+    border-left: 3px solid var(--pi-cyan);
+    background: rgba(255,255,255,0.10);
+    color: #ffffff;
+    font-weight: 600;
+  }
 
-  /**
-   * Toggleable backgrounds go behind the content. Hoverable/active goes on top.
-   * This way they can stack/compound. Both will overlap the parent's borders!
-   * So borders will be automatically adjusted both on toggle, and hover/active,
-   * and they will be compounded.
-   */
+  .pi-nav-item {
+    border-left: 3px solid transparent;
+    transition: background 150ms ease-in-out, color 150ms ease-in-out;
+  }
+
+  .pi-nav-item:hover {
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.85);
+  }
+
+  /* --- Stat card accent line --- */
+  .pi-stat-accent-primary { border-top: 3px solid hsl(var(--primary)); }
+  .pi-stat-accent-cyan    { border-top: 3px solid var(--pi-cyan); }
+  .pi-stat-accent-green   { border-top: 3px solid #22c55e; }
+  .pi-stat-accent-amber   { border-top: 3px solid #f59e0b; }
+
+  /* --- Insight card accent side border --- */
+  .pi-insight-card-strength { border-left: 3px solid #22c55e; }
+  .pi-insight-card-weakness { border-left: 3px solid #f59e0b; }
+  .pi-insight-card-risk     { border-left: 3px solid hsl(var(--destructive)); }
+  .pi-insight-card-pivot    { border-left: 3px solid hsl(var(--primary)); }
+
+  /* --- Score badge color mapping --- */
+  .pi-score-excellent { color: #22c55e; }
+  .pi-score-good      { color: hsl(var(--primary)); }
+  .pi-score-fair      { color: #f59e0b; }
+  .pi-score-poor      { color: hsl(var(--destructive)); }
+
+  /* =======================================
+     Elevation system
+     ======================================= */
   .toggle-elevate::before,
   .toggle-elevate-2::before {
     content: "";
     pointer-events: none;
     position: absolute;
     inset: 0px;
-    /*border-radius: inherit;   match rounded corners */
     border-radius: inherit;
     z-index: -1;
-    /* sits behind content but above backdrop */
   }
 
   .toggle-elevate.toggle-elevated::before {
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
   .border.toggle-elevate::before {
     inset: -1px;
   }
 
-  /* Does not work on elements with overflow:hidden! */
   .hover-elevate:not(.no-default-hover-elevate),
   .active-elevate:not(.no-default-active-elevate),
   .hover-elevate-2:not(.no-default-hover-elevate),
@@ -312,10 +372,8 @@
     pointer-events: none;
     position: absolute;
     inset: 0px;
-    /*border-radius: inherit;   match rounded corners */
     border-radius: inherit;
     z-index: 999;
-    /* sits in front of content */
   }
 
   .hover-elevate:hover:not(.no-default-hover-elevate)::after,
@@ -328,12 +386,60 @@
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after {
     inset: -1px;
+  }
+
+  /* --- Gradient background for auth split panel --- */
+  .pi-brand-panel {
+    background: linear-gradient(145deg, #0D0C22 0%, #1a1538 50%, #0d1629 100%);
+  }
+
+  /* --- Animated pulse ring for processing state --- */
+  @keyframes pi-pulse-ring {
+    0% { transform: scale(0.9); opacity: 0.6; }
+    70% { transform: scale(1.1); opacity: 0; }
+    100% { transform: scale(1.1); opacity: 0; }
+  }
+
+  .pi-pulse-ring {
+    animation: pi-pulse-ring 2s ease-in-out infinite;
+  }
+
+  /* --- Cyan glow for score display --- */
+  .pi-score-glow {
+    text-shadow: 0 0 24px rgba(87, 223, 254, 0.3);
+  }
+
+  /* --- Card hover transition --- */
+  .pi-card-hover {
+    transition: box-shadow 150ms ease-in-out, border-color 150ms ease-in-out, transform 150ms ease-in-out;
+  }
+
+  .pi-card-hover:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+  }
+
+  /* --- Smooth scrollbar styling --- */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
   }
 }

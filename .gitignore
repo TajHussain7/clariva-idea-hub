@@ -44,6 +44,13 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# Replit
-.cache/
-.local/
+# Replit artefacts (already removed, kept here to prevent re-addition)
+.replit
+.replitignore
+.replit-artifact/
+replit.md
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
