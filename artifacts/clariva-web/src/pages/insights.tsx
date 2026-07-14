@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { Link } from "wouter";
 import {
   Sparkles,
   TrendingUp,
@@ -7,249 +8,86 @@ import {
   ArrowUpRight,
   RefreshCw,
   Bell,
-  Filter,
-  Zap,
-  Globe,
   BarChart2,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
+  Cpu,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useListIdeas } from "@workspace/api-client-react";
 
 /* ======================= Types ======================= */
-type FilterTab = "all" | "market" | "tech" | "risks" | "opportunities";
+type FilterTab = "all" | "opportunities" | "risks" | "suggestions";
 
-interface InsightCard {
-  id: number;
-  type: "market" | "tech" | "risks" | "opportunities";
-  badge: string;
-  badgeColor: string;
+interface SmallInsight {
+  id: string;
+  ideaId: number;
+  type: "opportunity" | "risk" | "suggestion";
+  label: string;
+  timeAgo: string;
   title: string;
   body: string;
-  metric?: string;
-  metricLabel?: string;
-  metricTrend?: "up" | "down";
   icon: React.ElementType;
   iconBg: string;
   iconColor: string;
-  timeAgo: string;
-  actions?: string[];
-  relatedIdea?: string;
+  cta: string;
 }
 
-/* ======================= Mock Insights Data ======================= */
-const insights: InsightCard[] = [
-  {
-    id: 1,
-    type: "market",
-    badge: "Market Shift",
-    badgeColor: "bg-cyan-400/20 text-cyan-400 border-cyan-400/30",
-    title: "Generative Design Patent Surge Detected",
-    body: "A 40% uptick in patents related to generative manufacturing was detected in the last 30 days. This directly correlates with your \"Zero-Waste Mesh\" and \"Cognitive Tutor VR\" ideas. Market entrants are accelerating — consider updating your competitive analysis.",
-    metric: "+40%",
-    metricLabel: "Patent filings",
-    metricTrend: "up",
-    icon: TrendingUp,
-    iconBg: "bg-cyan-400/10",
-    iconColor: "text-cyan-400",
-    timeAgo: "2 hours ago",
-    actions: ["Analyze Correlation", "Update Ideas"],
-    relatedIdea: "Zero-Waste Mesh",
-  },
-  {
-    id: 2,
-    type: "tech",
-    badge: "Tech Trend",
-    badgeColor: "bg-primary/10 text-primary border-primary/20",
-    title: "WebGPU Adoption Accelerating in EdTech",
-    body: "Browser-based GPU compute is now supported in 78% of global devices. Your \"Cognitive Tutor VR\" idea could pivot from native VR to in-browser delivery, dramatically reducing go-to-market friction and hardware requirements.",
-    metric: "78%",
-    metricLabel: "Device support",
-    metricTrend: "up",
-    icon: Zap,
-    iconBg: "bg-primary/10",
-    iconColor: "text-primary",
-    timeAgo: "5 hours ago",
-    actions: ["View Tech Report", "Reassess Feasibility"],
-    relatedIdea: "Cognitive Tutor VR",
-  },
-  {
-    id: 3,
-    type: "risks",
-    badge: "Risk Alert",
-    badgeColor: "bg-red-500/10 text-red-400 border-red-500/20",
-    title: "Regulatory Headwinds: Medical AI in EU",
-    body: "The EU AI Act's high-risk classification now includes AI diagnostic tools. Your \"AI Diagnostics Hub\" concept faces new compliance requirements including mandatory human-oversight protocols and audit trail obligations before deployment.",
-    metric: "High",
-    metricLabel: "Risk level",
-    icon: AlertTriangle,
-    iconBg: "bg-red-500/10",
-    iconColor: "text-red-400",
-    timeAgo: "1 day ago",
-    actions: ["Review Compliance", "Adjust Strategy"],
-    relatedIdea: "AI Diagnostics Hub",
-  },
-  {
-    id: 4,
-    type: "opportunities",
-    badge: "Opportunity",
-    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    title: "Gig Economy Regulation Opens FinTech Window",
-    body: "New US labor rulings classifying platform workers as employees create a 12-month window for financial products targeting this demographic. Your \"Micro-Equity Wallet\" is positioned to capture early market share before incumbents adjust.",
-    metric: "$4.2B",
-    metricLabel: "Addressable market",
-    metricTrend: "up",
-    icon: Lightbulb,
-    iconBg: "bg-emerald-500/10",
-    iconColor: "text-emerald-400",
-    timeAgo: "2 days ago",
-    actions: ["Explore Market", "Update Pitch"],
-    relatedIdea: "Micro-Equity Wallet",
-  },
-  {
-    id: 5,
-    type: "market",
-    badge: "Market Shift",
-    badgeColor: "bg-cyan-400/20 text-cyan-400 border-cyan-400/30",
-    title: "Healthcare Data Monetization Platforms Consolidating",
-    body: "Three major acquisitions in the medical data space occurred this quarter. Consolidation typically signals either market maturity or a race for a dominant protocol. Your \"AI Diagnostics Hub\" may benefit from positioning as a neutral aggregator rather than a competitor.",
-    metric: "3",
-    metricLabel: "Major acquisitions",
-    icon: Globe,
-    iconBg: "bg-cyan-400/10",
-    iconColor: "text-cyan-400",
-    timeAgo: "3 days ago",
-    actions: ["Analyze Landscape"],
-    relatedIdea: "AI Diagnostics Hub",
-  },
-  {
-    id: 6,
-    type: "opportunities",
-    badge: "Opportunity",
-    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    title: "Open-Source LLM Models Reduce AI Costs 60%",
-    body: "The latest generation of open-source language models (Llama 3.1, Mistral Large) achieve GPT-4 parity on reasoning tasks at a fraction of the cost. This directly improves the unit economics for any AI-first SaaS idea in your portfolio.",
-    metric: "-60%",
-    metricLabel: "AI inference cost",
-    metricTrend: "down",
-    icon: BarChart2,
-    iconBg: "bg-emerald-500/10",
-    iconColor: "text-emerald-400",
-    timeAgo: "4 days ago",
-    actions: ["Recalculate Economics"],
-  },
+const filterTabs: { key: FilterTab; label: string }[] = [
+  { key: "all", label: "All Insights" },
+  { key: "opportunities", label: "Opportunities" },
+  { key: "risks", label: "Risks" },
+  { key: "suggestions", label: "Suggestions" },
 ];
 
-const filterTabs: { key: FilterTab; label: string; icon: React.ElementType }[] = [
-  { key: "all", label: "All Insights", icon: Sparkles },
-  { key: "market", label: "Market Shifts", icon: TrendingUp },
-  { key: "tech", label: "Tech Trends", icon: Zap },
-  { key: "risks", label: "Risks", icon: AlertTriangle },
-  { key: "opportunities", label: "Opportunities", icon: Lightbulb },
-];
+/* ======================= Time Ago Helper ======================= */
+function formatTimeAgo(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
 
-/* ======================= Stat Bar ======================= */
-function StatPill({ label, value, color }: { label: string; value: string; color: string }) {
+/* ======================= Small insight card ======================= */
+function SmallInsightCard({ insight }: { insight: SmallInsight }) {
+  const Icon = insight.icon;
   return (
-    <div className="flex flex-col items-center px-5 py-3 bg-card border border-border rounded-xl">
-      <span className={`text-2xl font-black tabular-nums ${color}`}>{value}</span>
-      <span className="text-xs text-muted-foreground font-medium mt-0.5">{label}</span>
+    <div className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start gap-3 mb-3">
+        <div
+          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${insight.iconBg}`}
+        >
+          <Icon className={`w-4 h-4 ${insight.iconColor}`} />
+        </div>
+        <div className="min-w-0">
+          <p className={`text-xs font-semibold ${insight.iconColor}`}>
+            {insight.label}{" "}
+            <span className="text-muted-foreground font-normal">
+              · {insight.timeAgo}
+            </span>
+          </p>
+          <h3 className="text-sm font-semibold text-foreground mt-0.5">
+            {insight.title}
+          </h3>
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+        {insight.body}
+      </p>
+      <Link href={`/ideas/${insight.ideaId}`}>
+        <a className="text-sm font-medium text-primary hover:underline inline-flex items-center gap-1">
+          {insight.cta}
+          <ArrowUpRight className="w-3.5 h-3.5" />
+        </a>
+      </Link>
     </div>
-  );
-}
-
-/* ======================= Insight Card ======================= */
-function InsightCardComponent({ card }: { card: InsightCard }) {
-  const Icon = card.icon;
-  return (
-    <Card className="bg-card border-border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group">
-      {/* Top accent bar */}
-      <div
-        className={`h-0.5 w-full ${
-          card.type === "risks"
-            ? "bg-red-500"
-            : card.type === "opportunities"
-            ? "bg-emerald-500"
-            : card.type === "tech"
-            ? "bg-primary"
-            : "bg-cyan-400"
-        }`}
-      />
-
-      <CardHeader className="pb-3 pt-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
-              <Icon className={`w-4 h-4 ${card.iconColor}`} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${card.badgeColor}`}
-                >
-                  {card.badge}
-                </span>
-                {card.relatedIdea && (
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <ChevronRight className="w-3 h-3" />
-                    {card.relatedIdea}
-                  </span>
-                )}
-              </div>
-              <CardTitle className="text-base font-semibold leading-snug group-hover:text-primary transition-colors">
-                {card.title}
-              </CardTitle>
-            </div>
-          </div>
-
-          {card.metric && (
-            <div className="shrink-0 text-right">
-              <div
-                className={`text-xl font-black tabular-nums ${
-                  card.type === "risks"
-                    ? "text-red-400"
-                    : card.type === "opportunities"
-                    ? "text-emerald-400"
-                    : card.type === "tech"
-                    ? "text-primary"
-                    : "text-cyan-400"
-                }`}
-              >
-                {card.metric}
-              </div>
-              <div className="text-[10px] text-muted-foreground">{card.metricLabel}</div>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="pt-0 space-y-4">
-        <p className="text-sm text-muted-foreground leading-relaxed">{card.body}</p>
-
-        <div className="flex items-center justify-between pt-2 border-t border-border">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            {card.timeAgo}
-          </div>
-          <div className="flex items-center gap-2">
-            {card.actions?.map((action, i) => (
-              <Button
-                key={i}
-                size="sm"
-                variant={i === 0 ? "default" : "outline"}
-                className="h-7 text-xs px-3 gap-1"
-              >
-                {action}
-                {i === 0 && <ArrowUpRight className="w-3 h-3" />}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -258,38 +96,285 @@ export function Insights() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = () => {
+  const { data: ideas, isLoading, isError, refetch } = useListIdeas();
+
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
+    await refetch();
+    setIsRefreshing(false);
   };
 
-  const filtered =
-    activeFilter === "all" ? insights : insights.filter((i) => i.type === activeFilter);
+  const processedData = useMemo(() => {
+    if (!ideas) {
+      return {
+        smallInsights: [],
+        distribution: [],
+        priorityInsight: null,
+        riskInsight: null,
+        confidenceData: [70, 70, 70, 70, 70, 70],
+        hasAnyAnalyzed: false,
+        hasAnyProcessing: false,
+      };
+    }
 
-  const counts = {
-    all: insights.length,
-    market: insights.filter((i) => i.type === "market").length,
-    tech: insights.filter((i) => i.type === "tech").length,
-    risks: insights.filter((i) => i.type === "risks").length,
-    opportunities: insights.filter((i) => i.type === "opportunities").length,
-  };
+    const analyzedIdeas = ideas.filter(
+      (idea) => idea.status === "analyzed" && idea.analysis
+    );
+
+    const hasAnyProcessing = ideas.some(
+      (idea) => idea.status === "processing" || idea.status === "pending"
+    );
+
+    if (analyzedIdeas.length === 0) {
+      return {
+        smallInsights: [],
+        distribution: [],
+        priorityInsight: null,
+        riskInsight: null,
+        confidenceData: [70, 70, 70, 70, 70, 70],
+        hasAnyAnalyzed: false,
+        hasAnyProcessing,
+      };
+    }
+
+    const list: SmallInsight[] = [];
+    let maxOverallIdea = analyzedIdeas[0];
+    let highestScore = analyzedIdeas[0].analysis?.overallScore ?? 0;
+    let riskToSpotlight: {
+      title: string;
+      desc: string;
+      overallScore: number;
+      ideaTitle: string;
+      ideaId: number;
+    } | null = null;
+
+    analyzedIdeas.forEach((idea) => {
+      const analysis = idea.analysis!;
+      const score = analysis.overallScore ?? 0;
+      if (score > highestScore) {
+        highestScore = score;
+        maxOverallIdea = idea;
+      }
+
+      // Aggregate strengths -> opportunities
+      if (analysis.strengths) {
+        analysis.strengths.forEach((item, index) => {
+          list.push({
+            id: `opportunity-${idea.id}-${index}`,
+            ideaId: idea.id,
+            type: "opportunity",
+            label: "Opportunity",
+            timeAgo: formatTimeAgo(idea.createdAt),
+            title: item.title,
+            body: item.desc,
+            icon: TrendingUp,
+            iconBg: "bg-emerald-500/10",
+            iconColor: "text-emerald-500",
+            cta: "View Idea Details",
+          });
+        });
+      }
+
+      // Aggregate suggestions -> suggestions
+      if (analysis.suggestions) {
+        analysis.suggestions.forEach((item, index) => {
+          list.push({
+            id: `suggestion-${idea.id}-${index}`,
+            ideaId: idea.id,
+            type: "suggestion",
+            label: "Suggestion",
+            timeAgo: formatTimeAgo(idea.createdAt),
+            title: item.title,
+            body: item.desc,
+            icon: Lightbulb,
+            iconBg: "bg-amber-500/10",
+            iconColor: "text-amber-500",
+            cta: "View Idea Details",
+          });
+        });
+      }
+
+      // Aggregate risks -> risks
+      if (analysis.risks) {
+        analysis.risks.forEach((item, index) => {
+          list.push({
+            id: `risk-${idea.id}-${index}`,
+            ideaId: idea.id,
+            type: "risk",
+            label: "Risk",
+            timeAgo: formatTimeAgo(idea.createdAt),
+            title: item.title,
+            body: item.desc,
+            icon: AlertTriangle,
+            iconBg: "bg-red-500/10",
+            iconColor: "text-red-500",
+            cta: "View Idea Details",
+          });
+
+          if (!riskToSpotlight) {
+            riskToSpotlight = {
+              title: item.title,
+              desc: item.desc,
+              overallScore: analysis.overallScore ?? 0,
+              ideaTitle: idea.title,
+              ideaId: idea.id,
+            };
+          }
+        });
+      }
+    });
+
+    // Priority Insight spotlight
+    const priority = maxOverallIdea
+      ? {
+          title: maxOverallIdea.title,
+          body:
+            maxOverallIdea.analysis?.verdictSummary ||
+            maxOverallIdea.description ||
+            "Highest-rated strategic concept based on overall feasibility, innovation, and impact.",
+          impactScore: maxOverallIdea.analysis?.overallScore ?? 0,
+          ideaId: maxOverallIdea.id,
+        }
+      : null;
+
+    // Distribution calculation
+    const oppsCount = list.filter((i) => i.type === "opportunity").length;
+    const sugCount = list.filter((i) => i.type === "suggestion").length;
+    const risksCount = list.filter((i) => i.type === "risk").length;
+
+    const dist = [
+      {
+        label: "Opportunities",
+        value: oppsCount,
+        color: "bg-emerald-500",
+        dot: "bg-emerald-500",
+      },
+      { label: "Risks", value: risksCount, color: "bg-red-400", dot: "bg-red-400" },
+      {
+        label: "Suggestions",
+        value: sugCount,
+        color: "bg-amber-500",
+        dot: "bg-amber-500",
+      },
+    ];
+
+    // Confidence chart: last 6 analyzed ideas overallScore (or default 70)
+    const confData = analyzedIdeas
+      .slice(-6)
+      .map((i) => i.analysis?.overallScore ?? 70);
+    while (confData.length < 6) {
+      confData.unshift(70);
+    }
+
+    return {
+      smallInsights: list,
+      distribution: dist,
+      priorityInsight: priority,
+      riskInsight: riskToSpotlight,
+      confidenceData: confData,
+      hasAnyAnalyzed: true,
+      hasAnyProcessing,
+    };
+  }, [ideas]);
+
+  const {
+    smallInsights,
+    distribution,
+    priorityInsight,
+    riskInsight,
+    confidenceData,
+    hasAnyAnalyzed,
+    hasAnyProcessing,
+  } = processedData;
+
+  const filteredSmall =
+    activeFilter === "all"
+      ? smallInsights
+      : smallInsights.filter(
+          (i) => (`${i.type}s` as FilterTab) === activeFilter
+        );
+
+  const showPriority =
+    activeFilter === "all" || activeFilter === "opportunities";
+  const showRisk = activeFilter === "all" || activeFilter === "risks";
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-end">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-32" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-24 rounded-full" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          <Skeleton className="lg:col-span-3 h-[220px] rounded-2xl" />
+          <Skeleton className="lg:col-span-2 h-[220px] rounded-2xl" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-16 bg-card rounded-xl border border-border">
+        <AlertTriangle className="w-10 h-10 text-destructive mx-auto mb-3" />
+        <h3 className="font-semibold mb-1">Failed to load insights</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Please check your connection and try again.
+        </p>
+        <Button onClick={handleRefresh}>Retry</Button>
+      </div>
+    );
+  }
+
+  if (!hasAnyAnalyzed) {
+    return (
+      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border space-y-4">
+        <Sparkles className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+        <h3 className="text-lg font-semibold">No AI Insights Available Yet</h3>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          {hasAnyProcessing
+            ? "Your ideas are currently being analyzed by the AI engine. This usually takes less than a minute."
+            : "Clariva generates actionable recommendations, opportunity assessments, and risk reviews once you submit ideas for validation."}
+        </p>
+        {!hasAnyProcessing && (
+          <Link href="/submit">
+            <Button className="gap-2">
+              Submit Your First Idea
+              <ArrowUpRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* ---- Page Header ---- */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: "rgba(87,223,254,0.15)" }}
-            >
-              <Sparkles className="w-4 h-4" style={{ color: "#57dffe" }} />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">AI Insights Feed</h1>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            AI Recommendations
+          </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            AI-generated market intelligence and proactive alerts for your ideas.
+            Real-time strategic insights based on your recent activity and
+            market trends.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -299,7 +384,9 @@ export function Insights() {
             onClick={handleRefresh}
             className="gap-2"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
           <Button size="sm" className="gap-2">
@@ -309,107 +396,210 @@ export function Insights() {
         </div>
       </div>
 
-      {/* ---- Stats Row ---- */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatPill label="Total Insights" value={String(insights.length)} color="text-foreground" />
-        <StatPill
-          label="Opportunities"
-          value={String(counts.opportunities)}
-          color="text-emerald-500"
-        />
-        <StatPill label="Risks Detected" value={String(counts.risks)} color="text-red-400" />
-        <StatPill
-          label="Market Shifts"
-          value={String(counts.market)}
-          color="text-cyan-400"
-        />
-      </div>
-
-      {/* ---- AI Banner ---- */}
-      <div
-        className="rounded-2xl p-6 relative overflow-hidden text-white"
-        style={{ background: "linear-gradient(135deg, #0D0C22 0%, #1a1448 60%, #0d1835 100%)" }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
-          <div className="flex-1">
-            <span
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border mb-4"
-              style={{
-                backgroundColor: "rgba(87,223,254,0.15)",
-                borderColor: "rgba(87,223,254,0.3)",
-                color: "#57dffe",
-              }}
-            >
-              <Sparkles className="w-3 h-3" />
-              AI INTELLIGENCE ENGINE
-            </span>
-            <h3 className="text-xl font-bold mb-2">Your Ideas Are Being Monitored 24/7</h3>
-            <p className="text-slate-300 text-sm leading-relaxed max-w-lg">
-              Ideon's intelligence engine continuously scans market signals, patent filings,
-              regulatory changes, and GitHub activity to surface insights relevant to your
-              idea portfolio. New signals trigger proactive alerts.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 shrink-0">
-            {[
-              { label: "Ideas monitored", value: "4" },
-              { label: "Signals scanned/day", value: "12,400" },
-              { label: "Last scan", value: "2 min ago" },
-            ].map((stat) => (
-              <div key={stat.label} className="flex items-center justify-between gap-6">
-                <span className="text-slate-400 text-xs">{stat.label}</span>
-                <span className="text-white font-bold text-sm tabular-nums">{stat.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* ---- Filter Tabs ---- */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {filterTabs.map((tab) => {
-            const TabIcon = tab.icon;
-            const isActive = activeFilter === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveFilter(tab.key)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 border ${
-                  isActive
-                    ? "bg-primary text-white border-primary shadow-sm"
-                    : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
-                }`}
-              >
-                <TabIcon className="w-3 h-3" />
-                {tab.label}
-                <span
-                  className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    isActive ? "bg-white/20" : "bg-muted"
-                  }`}
-                >
-                  {counts[tab.key]}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {filterTabs.map((tab) => {
+          const isActive = activeFilter === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveFilter(tab.key)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-150 border ${
+                isActive
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+              }`}
+              data-testid={`filter-${tab.key}`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* ---- Insights List ---- */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
-          <CheckCircle2 className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <h3 className="font-semibold mb-1">No insights in this category</h3>
-          <p className="text-sm text-muted-foreground">Check back soon — the engine is scanning.</p>
+      {/* ---- Priority + Risk spotlight ---- */}
+      {(showPriority || showRisk) && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          {showPriority && priorityInsight && (
+            <div
+              className="lg:col-span-3 rounded-2xl p-6 text-white relative overflow-hidden flex flex-col justify-between min-h-[220px]"
+              style={{
+                background: "linear-gradient(135deg, #4338ca 0%, #6d28d9 100%)",
+              }}
+            >
+              <div>
+                <Badge className="bg-white/15 border-white/20 text-white gap-1 mb-3">
+                  <Sparkles className="w-3 h-3" />
+                  Priority Recommendation
+                </Badge>
+                <h3 className="text-lg font-bold mb-2">
+                  {priorityInsight.title}
+                </h3>
+                <p className="text-sm text-white/80 leading-relaxed max-w-xl">
+                  {priorityInsight.body}
+                </p>
+              </div>
+              <div className="flex items-end justify-between mt-6 gap-4 flex-wrap">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <Link href={`/ideas/${priorityInsight.ideaId}`}>
+                    <Button
+                      size="sm"
+                      className="bg-white text-indigo-700 hover:bg-white/90 gap-1.5 cursor-pointer"
+                    >
+                      Execute Strategy
+                    </Button>
+                  </Link>
+                  <Link href={`/ideas/${priorityInsight.ideaId}`}>
+                    <a className="text-sm font-medium text-white/90 hover:text-white flex items-center gap-1">
+                      View Detailed Report
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </a>
+                  </Link>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] text-white/60 uppercase tracking-wider">
+                    Idea Overall Score
+                  </p>
+                  <p className="text-2xl font-black tabular-nums leading-tight">
+                    {priorityInsight.impactScore}/100
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showRisk && riskInsight && (
+            <div className="lg:col-span-2 rounded-2xl p-6 bg-card border border-border flex flex-col justify-between min-h-[220px]">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Risk Alert
+                  </Badge>
+                  <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <h3 className="text-base font-bold mb-2">
+                  {riskInsight.title}
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {riskInsight.desc}
+                </p>
+              </div>
+              <div className="mt-4">
+                <div className="flex items-center justify-between rounded-lg bg-red-500/5 border border-red-500/20 px-3 py-2 mb-3">
+                  <span className="text-xs text-muted-foreground">
+                    Idea: {riskInsight.ideaTitle}
+                  </span>
+                  <span className="text-sm font-bold text-red-500">
+                    Score: {riskInsight.overallScore}/100
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-4">
+                  <div
+                    className="h-full rounded-full bg-red-500"
+                    style={{ width: `${riskInsight.overallScore}%` }}
+                  />
+                </div>
+                <Link href={`/ideas/${riskInsight.ideaId}`}>
+                  <Button variant="outline" size="sm" className="w-full cursor-pointer">
+                    Mitigate Risks
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((card) => (
-            <InsightCardComponent key={card.id} card={card} />
+      )}
+
+      {/* ---- Suggestion / Opportunity grid ---- */}
+      {filteredSmall.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {filteredSmall.map((insight) => (
+            <SmallInsightCard key={insight.id} insight={insight} />
           ))}
+        </div>
+      )}
+
+      {filteredSmall.length === 0 && !showPriority && !showRisk && (
+        <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+          <Sparkles className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <h3 className="font-semibold mb-1">No insights in this category</h3>
+          <p className="text-sm text-muted-foreground">
+            Check back soon — the engine is scanning.
+          </p>
+        </div>
+      )}
+
+      {/* ---- Distribution + System notice ---- */}
+      {activeFilter === "all" && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+              Insight Distribution
+            </p>
+            <div className="space-y-3">
+              {distribution.map((d) => (
+                <div
+                  key={d.label}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <span className={`w-2 h-2 rounded-full ${d.dot}`} />
+                    {d.label}
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {d.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                <BarChart2 className="w-3.5 h-3.5" />
+                AI Model Confidence
+              </p>
+              <div className="flex items-end gap-1.5 h-16">
+                {confidenceData.map((h, i) => (
+                  <div
+                    key={i}
+                    className={`flex-1 rounded-t-sm ${i === 2 ? "bg-primary" : "bg-primary/20"}`}
+                    style={{ height: `${h}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-3 rounded-xl border border-border bg-card p-5 flex flex-col">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2 text-primary text-xs font-semibold">
+                <Cpu className="w-3.5 h-3.5" />
+                System Notice
+                <span className="text-muted-foreground font-normal">
+                  · 1 day ago
+                </span>
+              </div>
+              <Badge variant="secondary" className="text-[10px]">
+                New model v4.2
+              </Badge>
+            </div>
+            <h3 className="text-sm font-semibold mb-2">
+              Enhanced Predictive Accuracy
+            </h3>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-4 flex-1">
+              Clariva's core AI has been updated. Insights now include "External
+              Market Context" providing a 360-degree view of your competitive
+              landscape and macro-economic factors.
+            </p>
+            <div className="flex items-center gap-3">
+              <Button size="sm" variant="outline">
+                Learn More
+              </Button>
+              <button className="text-sm text-muted-foreground hover:text-foreground">
+                Dismiss
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -10,7 +10,7 @@ import { pool } from "@workspace/db";
 if (!process.env.SESSION_SECRET) {
   throw new Error(
     "SESSION_SECRET environment variable is required. " +
-    "Set it in your .env file (e.g. SESSION_SECRET=your_random_secret_here)."
+      "Set it in your .env file (e.g. SESSION_SECRET=your_random_secret_here).",
   );
 }
 
@@ -62,7 +62,11 @@ app.use(
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       // In development, allow any localhost/127.0.0.1 origin for convenience.
-      if (!isProduction && (origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1"))) {
+      if (
+        !isProduction &&
+        (origin.startsWith("http://localhost") ||
+          origin.startsWith("http://127.0.0.1"))
+      ) {
         return callback(null, true);
       }
       callback(new Error(`CORS: origin '${origin}' not allowed`));
@@ -71,8 +75,10 @@ app.use(
   }),
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Raised from the default 100kb so base64-encoded avatar uploads (stored as
+// data URLs, capped at 3MB client-side) fit in the request body.
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
 app.use(
   session({

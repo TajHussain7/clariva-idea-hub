@@ -33,10 +33,6 @@ export const LoginBody = zod.object({
 });
 
 export const UserNotifications = zod.object({
-  marketShifts: zod.boolean(),
-  techTrends: zod.boolean(),
-  risks: zod.boolean(),
-  opportunities: zod.boolean(),
   weeklyDigest: zod.boolean(),
   analysisComplete: zod.boolean(),
 });

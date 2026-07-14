@@ -448,23 +448,11 @@ components:
     UserNotifications:
       type: object
       properties:
-        marketShifts:
-          type: boolean
-        techTrends:
-          type: boolean
-        risks:
-          type: boolean
-        opportunities:
-          type: boolean
         weeklyDigest:
           type: boolean
         analysisComplete:
           type: boolean
       required:
-        - marketShifts
-        - techTrends
-        - risks
-        - opportunities
         - weeklyDigest
         - analysisComplete
 

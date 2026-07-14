@@ -3,10 +3,6 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export interface UserNotifications {
-  marketShifts: boolean;
-  techTrends: boolean;
-  risks: boolean;
-  opportunities: boolean;
   weeklyDigest: boolean;
   analysisComplete: boolean;
 }
@@ -23,10 +19,6 @@ export const usersTable = pgTable("users", {
   theme: text("theme").default("light"),
   language: text("language").default("en-US"),
   notifications: jsonb("notifications").$type<UserNotifications>().default({
-    marketShifts: true,
-    techTrends: true,
-    risks: true,
-    opportunities: true,
     weeklyDigest: false,
     analysisComplete: true,
   }),

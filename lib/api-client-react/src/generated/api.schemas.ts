@@ -27,10 +27,6 @@ export interface LoginBody {
 }
 
 export interface UserNotifications {
-  marketShifts: boolean;
-  techTrends: boolean;
-  risks: boolean;
-  opportunities: boolean;
   weeklyDigest: boolean;
   analysisComplete: boolean;
 }

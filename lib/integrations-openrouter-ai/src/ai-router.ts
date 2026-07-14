@@ -50,7 +50,7 @@ function discoverSlots(): AIRouterSlot[] {
   const baseUrl = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
   if (!baseUrl) {
     throw new Error(
-      "AI_INTEGRATIONS_OPENROUTER_BASE_URL must be set in environment variables."
+      "AI_INTEGRATIONS_OPENROUTER_BASE_URL must be set in environment variables.",
     );
   }
 
@@ -95,15 +95,23 @@ function discoverSlots(): AIRouterSlot[] {
 
   if (slots.length === 0) {
     throw new Error(
-      "No AI API keys configured. Set AI_INTEGRATIONS_OPENROUTER_API_KEY or GROK_API_KEY in your .env file."
+      "No AI API keys configured. Set AI_INTEGRATIONS_OPENROUTER_API_KEY or GROK_API_KEY in your .env file.",
     );
   }
 
   return slots;
 }
 
-// Slots are discovered once at module load time (not per request)
-const AI_SLOTS: AIRouterSlot[] = discoverSlots();
+// Slots are discovered lazily on first use (not at module load time) so the
+// server can start without failing hard when the AI integration isn't
+// configured yet. Routes that need AI will surface the error when called.
+let cachedSlots: AIRouterSlot[] | null = null;
+function getSlots(): AIRouterSlot[] {
+  if (!cachedSlots) {
+    cachedSlots = discoverSlots();
+  }
+  return cachedSlots;
+}
 
 /**
  * Attempts a chat completion across all configured AI slots in order.
@@ -116,11 +124,12 @@ const AI_SLOTS: AIRouterSlot[] = discoverSlots();
  *   - If all slots exhausted: throws an AggregateError
  */
 export async function routeCompletion(
-  request: ChatCompletionRequest
+  request: ChatCompletionRequest,
 ): Promise<AIRouterResult> {
   const errors: Error[] = [];
 
-  for (const slot of AI_SLOTS) {
+  const slots = getSlots();
+  for (const slot of slots) {
     let attempt = 0;
 
     while (attempt < MAX_RETRIES_PER_SLOT) {
@@ -151,20 +160,25 @@ export async function routeCompletion(
               err as {
                 error?: { metadata?: { retry_after_seconds?: number } };
               }
-            )?.error?.metadata?.retry_after_seconds ?? DEFAULT_RETRY_WAIT_MS / 1000;
+            )?.error?.metadata?.retry_after_seconds ??
+            DEFAULT_RETRY_WAIT_MS / 1000;
 
           const waitMs = Math.ceil(retryAfterSec) * 1000;
 
           if (attempt < MAX_RETRIES_PER_SLOT) {
             // Retry within this slot after waiting
             console.warn(
-              `[AIRouter] Slot ${slot.index} (${slot.model}): rate-limited, waiting ${Math.ceil(retryAfterSec)}s before retry (attempt ${attempt}/${MAX_RETRIES_PER_SLOT})`
+              `[AIRouter] Slot ${slot.index} (${slot.model}): rate-limited, waiting ${Math.ceil(retryAfterSec)}s before retry (attempt ${attempt}/${MAX_RETRIES_PER_SLOT})`,
             );
             await new Promise((resolve) => setTimeout(resolve, waitMs));
             continue; // retry same slot
           }
           // Exhausted retries on this slot — move to next
-          errors.push(new Error(`Slot ${slot.index} (${slot.model}): rate-limited after ${attempt} attempts`));
+          errors.push(
+            new Error(
+              `Slot ${slot.index} (${slot.model}): rate-limited after ${attempt} attempts`,
+            ),
+          );
           break;
         }
 
@@ -178,7 +192,7 @@ export async function routeCompletion(
   // All slots failed
   throw new AggregateError(
     errors,
-    `AI Router: all ${AI_SLOTS.length} slot(s) failed. Errors: ${errors.map((e) => e.message).join(" | ")}`
+    `AI Router: all ${slots.length} slot(s) failed. Errors: ${errors.map((e) => e.message).join(" | ")}`,
   );
 }
 
@@ -186,5 +200,5 @@ export async function routeCompletion(
  * Returns summary info about discovered slots (for health/debug logging).
  */
 export function getRouterStatus(): Array<{ slot: number; model: string }> {
-  return AI_SLOTS.map((s) => ({ slot: s.index, model: s.model }));
+  return getSlots().map((s) => ({ slot: s.index, model: s.model }));
 }
