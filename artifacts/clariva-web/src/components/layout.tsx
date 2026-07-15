@@ -99,7 +99,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight leading-none text-sidebar-foreground">
-              Ideon
+              Clariva
             </h1>
             <p className="text-xs mt-0.5 font-medium tracking-wide text-sidebar-foreground/60">
               AI-Powered SaaS
