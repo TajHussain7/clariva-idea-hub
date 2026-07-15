@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -14,6 +14,10 @@ import {
   Github,
   Star,
   Code2,
+  FileDown,
+  Wand2,
+  Loader2,
+  ArrowRight,
 } from "lucide-react";
 import {
   useGetIdea,
@@ -23,15 +27,14 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import {
+  usePivotSuggestions,
+  type PivotSuggestion,
+} from "@/hooks/use-pivot-suggestions";
 
 /* ======================= Score helpers ======================= */
 function scoreColor(score: number) {
@@ -42,10 +45,29 @@ function scoreColor(score: number) {
 }
 
 function scoreLabel(score: number) {
-  if (score >= 80) return { label: "Excellent", color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" };
-  if (score >= 60) return { label: "Good", color: "text-primary", bg: "bg-primary/10 border-primary/20" };
-  if (score >= 40) return { label: "Fair", color: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/20" };
-  return { label: "Poor", color: "text-destructive", bg: "bg-destructive/10 border-destructive/20" };
+  if (score >= 80)
+    return {
+      label: "Excellent",
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10 border-emerald-500/20",
+    };
+  if (score >= 60)
+    return {
+      label: "Good",
+      color: "text-primary",
+      bg: "bg-primary/10 border-primary/20",
+    };
+  if (score >= 40)
+    return {
+      label: "Fair",
+      color: "text-amber-500",
+      bg: "bg-amber-500/10 border-amber-500/20",
+    };
+  return {
+    label: "Poor",
+    color: "text-destructive",
+    bg: "bg-destructive/10 border-destructive/20",
+  };
 }
 
 function ScoreBar({
@@ -66,7 +88,9 @@ function ScoreBar({
         <span className="font-medium text-foreground">{label}</span>
         <span className={`font-bold tabular-nums text-sm ${colorClass}`}>
           {score}
-          <span className="text-muted-foreground font-normal text-xs">/100</span>
+          <span className="text-muted-foreground font-normal text-xs">
+            /100
+          </span>
         </span>
       </div>
       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -97,10 +121,14 @@ function InsightCard({
 }) {
   if (!items || items.length === 0) return null;
   return (
-    <Card className={`bg-card border-border h-full overflow-hidden ${accentClass}`}>
+    <Card
+      className={`bg-card border-border h-full overflow-hidden ${accentClass}`}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${iconBgClass}`}>
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center ${iconBgClass}`}
+          >
             <Icon className={`w-3.5 h-3.5 ${iconColorClass}`} />
           </div>
           {title}
@@ -124,13 +152,156 @@ function InsightCard({
   );
 }
 
+/* ======================= Pivot Suggestions Panel ======================= */
+function PivotSuggestionsPanel({
+  ideaId,
+  feasibilityScore,
+  uniquenessScore,
+}: {
+  ideaId: number;
+  feasibilityScore: number | null | undefined;
+  uniquenessScore: number | null | undefined;
+}) {
+  const isLowScore =
+    (feasibilityScore != null && feasibilityScore < 50) ||
+    (uniquenessScore != null && uniquenessScore < 50);
+
+  const { mutate, isPending, data, error, isSuccess } = usePivotSuggestions();
+  const [hasTriggered, setHasTriggered] = useState(false);
+
+  if (!isLowScore) return null;
+
+  const handleGenerate = () => {
+    setHasTriggered(true);
+    mutate(ideaId);
+  };
+
+  const weakLabels: string[] = [];
+  if (feasibilityScore != null && feasibilityScore < 50)
+    weakLabels.push("Feasibility");
+  if (uniquenessScore != null && uniquenessScore < 50)
+    weakLabels.push("Uniqueness");
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-500">
+      {/* Header card */}
+      <Card className="bg-amber-500/5 border-amber-500/20 overflow-hidden">
+        <div className="h-0.5 w-full bg-gradient-to-r from-amber-400 via-primary to-amber-400" />
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <Wand2 className="w-3.5 h-3.5 text-amber-500" />
+            </div>
+            AI Pivot Suggestions
+            <span className="ml-auto text-xs font-normal text-muted-foreground px-2 py-0.5 rounded-full bg-muted border border-border">
+              {weakLabels.join(" & ")} score{weakLabels.length > 1 ? "s" : ""}{" "}
+              low
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pb-5">
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Your idea scored below 50 on{" "}
+            <span className="font-semibold text-amber-500">
+              {weakLabels.join(" and ")}
+            </span>
+            . Generate 3 concrete, targeted pivot directions to strengthen it.
+          </p>
+
+          {!hasTriggered && (
+            <Button
+              onClick={handleGenerate}
+              size="sm"
+              className="gap-2 bg-primary hover:bg-primary/90"
+            >
+              <Wand2 className="w-4 h-4" />
+              Generate Pivot Suggestions
+            </Button>
+          )}
+
+          {isPending && (
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              Analyzing your idea and generating targeted pivots…
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertTriangle className="w-4 h-4" />
+              {error.message ||
+                "Failed to generate suggestions. Please try again."}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleGenerate}
+                className="ml-2 h-7 text-xs"
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Results */}
+      {isSuccess && data && data.pivots.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-bottom-4 duration-500 fade-in">
+          {data.pivots.map((pivot: PivotSuggestion, i: number) => (
+            <Card
+              key={i}
+              className="bg-card border-border pi-card-hover hover:border-primary/30 flex flex-col"
+            >
+              <CardHeader className="pb-2 pt-4">
+                <div className="flex items-start gap-2">
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                    {i + 1}
+                  </span>
+                  <CardTitle className="text-sm font-semibold leading-snug text-foreground">
+                    {pivot.title}
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col gap-3 pb-4">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {pivot.desc}
+                </p>
+                {pivot.rationale && (
+                  <div className="flex items-start gap-1.5 pt-1 border-t border-border">
+                    <ArrowRight className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                    <p className="text-xs text-primary/80 leading-relaxed">
+                      {pivot.rationale}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {isSuccess && data && data.pivots.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No pivot suggestions were generated. Try re-running the analysis
+          first.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ======================= Results Page ======================= */
 export function Results({ id }: { id: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const analyzeMutation = useAnalyzeIdea();
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-  const { data: idea, isLoading, isError } = useGetIdea(id, {
+  const {
+    data: idea,
+    isLoading,
+    isError,
+  } = useGetIdea(id, {
     query: {
       enabled: !!id,
       queryKey: getGetIdeaQueryKey(id),
@@ -153,6 +324,41 @@ export function Results({ id }: { id: number }) {
         },
       },
     );
+  };
+
+  const handleExportPdf = async () => {
+    if (!idea || !idea.analysis) return;
+    setIsExportingPdf(true);
+    try {
+      // Dynamic import to keep initial bundle lean
+      const { exportIdeaAnalysisPdf } = await import("@/lib/pdf-export");
+      exportIdeaAnalysisPdf({
+        title: idea.title,
+        description: idea.description,
+        domain: idea.domain,
+        createdAt: idea.createdAt,
+        analysis: {
+          overallScore: idea.analysis.overallScore,
+          feasibilityScore: idea.analysis.feasibilityScore,
+          uniquenessScore: idea.analysis.uniquenessScore,
+          impactScore: idea.analysis.impactScore,
+          innovationScore: idea.analysis.innovationScore,
+          verdictSummary: idea.analysis.verdictSummary,
+          strengths: idea.analysis.strengths,
+          weaknesses: idea.analysis.weaknesses,
+          risks: idea.analysis.risks,
+          suggestions: idea.analysis.suggestions,
+          techStack: idea.analysis.techStack,
+          githubRepos: idea.analysis.githubRepos,
+          marketContext: idea.analysis.marketContext,
+        },
+      });
+      toast({ title: "PDF exported successfully" });
+    } catch (err) {
+      toast({ title: "PDF export failed", variant: "destructive" });
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   /* ---- Loading ---- */
@@ -225,21 +431,42 @@ export function Results({ id }: { id: number }) {
           </p>
         </div>
 
-        {!isProcessing && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleReanalyze}
-            disabled={analyzeMutation.isPending}
-            className="shrink-0 gap-2"
-            data-testid="button-reanalyze"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${analyzeMutation.isPending ? "animate-spin" : ""}`}
-            />
-            Re-run Analysis
-          </Button>
-        )}
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          {isAnalyzed && a && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={isExportingPdf}
+              className="gap-2"
+              data-testid="button-export-pdf"
+            >
+              {isExportingPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileDown className="w-4 h-4" />
+              )}
+              Export PDF
+            </Button>
+          )}
+
+          {!isProcessing && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReanalyze}
+              disabled={analyzeMutation.isPending}
+              className="gap-2"
+              data-testid="button-reanalyze"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${analyzeMutation.isPending ? "animate-spin" : ""}`}
+              />
+              Re-run Analysis
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ---- Processing State ---- */}
@@ -299,10 +526,8 @@ export function Results({ id }: { id: number }) {
       {/* ---- Analyzed Results ---- */}
       {isAnalyzed && a && (
         <div className="space-y-6 animate-in slide-in-from-bottom-6 duration-500 fade-in">
-
           {/* Top section: Score + Verdict */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
             {/* Score Card */}
             <Card className="lg:col-span-1 bg-card border-border shadow-sm overflow-hidden">
               <div className="h-0.5 w-full bg-primary" />
@@ -316,7 +541,9 @@ export function Results({ id }: { id: number }) {
                   >
                     {a.overallScore}
                   </span>
-                  <span className="text-xl text-muted-foreground mb-2">/100</span>
+                  <span className="text-xl text-muted-foreground mb-2">
+                    /100
+                  </span>
                 </div>
                 {/* Label badge */}
                 {(() => {
@@ -394,6 +621,13 @@ export function Results({ id }: { id: number }) {
               </CardContent>
             </Card>
           </div>
+
+          {/* ---- AI Pivot Suggestions (shown when scores are low) ---- */}
+          <PivotSuggestionsPanel
+            ideaId={id}
+            feasibilityScore={a.feasibilityScore}
+            uniquenessScore={a.uniquenessScore}
+          />
 
           {/* Deep Insights Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
