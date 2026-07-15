@@ -34,6 +34,32 @@ interface SmallInsight {
   cta: string;
 }
 
+interface ProcessedData {
+  smallInsights: SmallInsight[];
+  distribution: {
+    label: string;
+    value: number;
+    color: string;
+    dot: string;
+  }[];
+  priorityInsight: {
+    title: string;
+    body: string;
+    impactScore: number;
+    ideaId: number;
+  } | null;
+  riskInsight: {
+    title: string;
+    desc: string;
+    overallScore: number;
+    ideaTitle: string;
+    ideaId: number;
+  } | null;
+  confidenceData: number[];
+  hasAnyAnalyzed: boolean;
+  hasAnyProcessing: boolean;
+}
+
 const filterTabs: { key: FilterTab; label: string }[] = [
   { key: "all", label: "All Insights" },
   { key: "opportunities", label: "Opportunities" },
@@ -44,6 +70,7 @@ const filterTabs: { key: FilterTab; label: string }[] = [
 /* ======================= Time Ago Helper ======================= */
 function formatTimeAgo(dateStr: string) {
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "Unknown time";
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -81,11 +108,12 @@ function SmallInsightCard({ insight }: { insight: SmallInsight }) {
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">
         {insight.body}
       </p>
-      <Link href={`/ideas/${insight.ideaId}`}>
-        <a className="text-sm font-medium text-primary hover:underline inline-flex items-center gap-1">
-          {insight.cta}
-          <ArrowUpRight className="w-3.5 h-3.5" />
-        </a>
+      <Link
+        href={`/ideas/${insight.ideaId}`}
+        className="text-sm font-medium text-primary hover:underline inline-flex items-center gap-1"
+      >
+        {insight.cta}
+        <ArrowUpRight className="w-3.5 h-3.5" />
       </Link>
     </div>
   );
@@ -104,7 +132,7 @@ export function Insights() {
     setIsRefreshing(false);
   };
 
-  const processedData = useMemo(() => {
+  const processedData = useMemo<ProcessedData>(() => {
     if (!ideas) {
       return {
         smallInsights: [],
@@ -148,7 +176,7 @@ export function Insights() {
       ideaId: number;
     } | null = null;
 
-    analyzedIdeas.forEach((idea) => {
+    for (const idea of analyzedIdeas) {
       const analysis = idea.analysis!;
       const score = analysis.overallScore ?? 0;
       if (score > highestScore) {
@@ -196,7 +224,7 @@ export function Insights() {
 
       // Aggregate risks -> risks
       if (analysis.risks) {
-        analysis.risks.forEach((item, index) => {
+        for (const [index, item] of analysis.risks.entries()) {
           list.push({
             id: `risk-${idea.id}-${index}`,
             ideaId: idea.id,
@@ -220,9 +248,9 @@ export function Insights() {
               ideaId: idea.id,
             };
           }
-        });
+        }
       }
-    });
+    }
 
     // Priority Insight spotlight
     const priority = maxOverallIdea
@@ -290,9 +318,14 @@ export function Insights() {
   const filteredSmall =
     activeFilter === "all"
       ? smallInsights
-      : smallInsights.filter(
-          (i) => (`${i.type}s` as FilterTab) === activeFilter
-        );
+      : smallInsights.filter((i) => {
+          const typeToTabMap: Record<SmallInsight["type"], FilterTab> = {
+            opportunity: "opportunities",
+            risk: "risks",
+            suggestion: "suggestions",
+          };
+          return typeToTabMap[i.type] === activeFilter;
+        });
 
   const showPriority =
     activeFilter === "all" || activeFilter === "opportunities";
@@ -353,7 +386,7 @@ export function Insights() {
             : "Clariva generates actionable recommendations, opportunity assessments, and risk reviews once you submit ideas for validation."}
         </p>
         {!hasAnyProcessing && (
-          <Link href="/submit">
+          <Link href="/submit" asChild>
             <Button className="gap-2">
               Submit Your First Idea
               <ArrowUpRight className="w-4 h-4" />
@@ -441,7 +474,7 @@ export function Insights() {
               </div>
               <div className="flex items-end justify-between mt-6 gap-4 flex-wrap">
                 <div className="flex items-center gap-4 flex-wrap">
-                  <Link href={`/ideas/${priorityInsight.ideaId}`}>
+                  <Link href={`/ideas/${priorityInsight.ideaId}`} asChild>
                     <Button
                       size="sm"
                       className="bg-white text-indigo-700 hover:bg-white/90 gap-1.5 cursor-pointer"
@@ -449,11 +482,12 @@ export function Insights() {
                       Execute Strategy
                     </Button>
                   </Link>
-                  <Link href={`/ideas/${priorityInsight.ideaId}`}>
-                    <a className="text-sm font-medium text-white/90 hover:text-white flex items-center gap-1">
-                      View Detailed Report
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </a>
+                  <Link
+                    href={`/ideas/${priorityInsight.ideaId}`}
+                    className="text-sm font-medium text-white/90 hover:text-white flex items-center gap-1"
+                  >
+                    View Detailed Report
+                    <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
                 <div className="text-right shrink-0">
@@ -500,7 +534,7 @@ export function Insights() {
                     style={{ width: `${riskInsight.overallScore}%` }}
                   />
                 </div>
-                <Link href={`/ideas/${riskInsight.ideaId}`}>
+                <Link href={`/ideas/${riskInsight.ideaId}`} asChild>
                   <Button variant="outline" size="sm" className="w-full cursor-pointer">
                     Mitigate Risks
                   </Button>

@@ -3,8 +3,8 @@ name: Deploy
 on:
   push:
     branches:
+      - develop
       - staging
-      - main
   workflow_dispatch:
 
 concurrency:
@@ -19,7 +19,7 @@ jobs:
   deploy:
     name: Build, push, deploy
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    environment: ${{ github.ref_name }}
 
     steps:
       - name: Checkout
@@ -42,9 +42,9 @@ jobs:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.io
+          username: ${{ secrets.docker_username }}
+          password: ${{ secrets.docker_pat }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -52,10 +52,10 @@ jobs:
       - name: Compute release tags
         id: tags
         run: |
-          if [ "${GITHUB_REF_NAME}" = "main" ]; then
-            echo "release_tag=production-latest" >> "$GITHUB_OUTPUT"
-          else
+          if [ "${GITHUB_REF_NAME}" = "staging" ]; then
             echo "release_tag=staging-latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_tag=develop-latest" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build and push backend image
@@ -65,32 +65,23 @@ jobs:
           file: artifacts/api-server/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/clariva-api:${{ steps.tags.outputs.release_tag }}
-            ghcr.io/${{ github.repository_owner }}/clariva-api:${{ github.sha }}
+            docker.io/${{ secrets.docker_username }}/clariva-api:${{ steps.tags.outputs.release_tag }}
+            docker.io/${{ secrets.docker_username }}/clariva-api:${{ github.sha }}
           cache-from: type=gha,scope=api-server
           cache-to: type=gha,mode=max,scope=api-server
 
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: artifacts/clariva-web/Dockerfile
-          push: true
-          build-args: |
-            VITE_API_URL=${{ github.ref_name == 'main' && secrets.VITE_API_URL_PRODUCTION || secrets.VITE_API_URL_STAGING }}
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/clariva-web:${{ steps.tags.outputs.release_tag }}
-            ghcr.io/${{ github.repository_owner }}/clariva-web:${{ github.sha }}
-          cache-from: type=gha,scope=clariva-web
-          cache-to: type=gha,mode=max,scope=clariva-web
+      # Frontend is deployed directly by Vercel from source — no Docker image needed.
 
       - name: Trigger Render deploy hook
         env:
-          RENDER_DEPLOY_HOOK: ${{ github.ref_name == 'main' && secrets.RENDER_DEPLOY_HOOK_PRODUCTION || secrets.RENDER_DEPLOY_HOOK_STAGING }}
+          # RENDER_DEPLOY_HOOK is set as an Environment Secret in the matching
+          # GitHub environment (develop / staging) so each branch automatically
+          # uses its own Render service webhook URL.
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
           if [ -z "$RENDER_DEPLOY_HOOK" ]; then
-            echo "Render deploy hook secret is missing."
+            echo "::error::RENDER_DEPLOY_HOOK secret is not set for the '${{ github.ref_name }}' environment."
             exit 1
           fi
-
           curl -fsS -X POST "$RENDER_DEPLOY_HOOK"
+          echo "Render deploy hook triggered successfully for '${{ github.ref_name }}'."

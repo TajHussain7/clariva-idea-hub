@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import router from "./routes/index.js";
+import setupWebSocket from "./routes/ws.js";
 import { logger } from "./lib/logger.js";
 import { pool } from "@workspace/db";
 
@@ -101,5 +102,8 @@ app.use(
 );
 
 app.use("/api", router);
+
+// Setup WebSocket
+setupWebSocket(app);
 
 export default app;

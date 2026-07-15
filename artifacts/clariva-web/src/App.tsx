@@ -14,6 +14,8 @@ import { Results } from "@/pages/results";
 import { Compare } from "@/pages/compare";
 import { Insights } from "@/pages/insights";
 import { Settings } from "@/pages/settings";
+import { Teams } from "@/pages/teams";
+import { TeamDetail } from "@/pages/team-detail";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -41,22 +43,48 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/auth" component={Auth} />
       <Route path="/dashboard">
-        <Layout><Dashboard /></Layout>
+        <Layout>
+          <Dashboard />
+        </Layout>
       </Route>
       <Route path="/submit">
-        <Layout><Submit /></Layout>
+        <Layout>
+          <Submit />
+        </Layout>
       </Route>
       <Route path="/ideas/:id">
-        {(params) => <Layout><Results id={parseInt(params.id)} /></Layout>}
+        {(params) => (
+          <Layout>
+            <Results id={parseInt(params.id)} />
+          </Layout>
+        )}
       </Route>
       <Route path="/compare">
-        <Layout><Compare /></Layout>
+        <Layout>
+          <Compare />
+        </Layout>
       </Route>
       <Route path="/insights">
-        <Layout><Insights /></Layout>
+        <Layout>
+          <Insights />
+        </Layout>
       </Route>
       <Route path="/settings">
-        <Layout><Settings /></Layout>
+        <Layout>
+          <Settings />
+        </Layout>
+      </Route>
+      <Route path="/teams">
+        <Layout>
+          <Teams />
+        </Layout>
+      </Route>
+      <Route path="/team/:id">
+        {(params) => (
+          <Layout>
+            <TeamDetail teamId={parseInt(params.id)} />
+          </Layout>
+        )}
       </Route>
       <Route component={NotFound} />
     </Switch>
