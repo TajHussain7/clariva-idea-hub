@@ -169,7 +169,7 @@ export function Auth() {
             <Sparkles className="w-5 h-5" style={{ color: "#0D0C22" }} />
           </div>
           <div>
-            <span className="text-2xl font-black text-white tracking-tight">Ideon</span>
+            <span className="text-2xl font-black text-white tracking-tight">Clariva</span>
             <p className="text-xs text-slate-400 font-medium tracking-wide">AI-Powered SaaS</p>
           </div>
         </div>
@@ -237,7 +237,7 @@ export function Auth() {
           >
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="text-2xl font-black tracking-tight">Ideon</span>
+          <span className="text-2xl font-black tracking-tight">Clariva</span>
         </div>
 
         <div className="max-w-sm w-full mx-auto">
@@ -530,10 +530,10 @@ export function Auth() {
           </div>
         </div>
 
-        {/* Ideon brand footer */}
+        {/* Clariva brand footer */}
         <div className="mt-8 flex justify-center items-center gap-2 text-muted-foreground">
           <Sparkles className="w-4 h-4 text-primary" />
-          <span className="font-black text-foreground text-sm tracking-tight">Ideon</span>
+          <span className="font-black text-foreground text-sm tracking-tight">Clariva</span>
           <span className="w-1 h-1 rounded-full bg-muted-foreground" />
           <span className="text-xs">AI-Powered Insights v2.4</span>
         </div>

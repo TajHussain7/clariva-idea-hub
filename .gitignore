@@ -1,6 +1,4 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
-# compiled output
 dist
 tmp
 out-tsc
@@ -43,12 +41,6 @@ Thumbs.db
 
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
-
-# Replit artefacts (already removed, kept here to prevent re-addition)
-.replit
-.replitignore
-.replit-artifact/
-replit.md
 
 # Environment files — never commit secrets
 .env
