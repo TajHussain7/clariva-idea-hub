@@ -15,6 +15,17 @@ if (!process.env.SESSION_SECRET) {
   );
 }
 
+// In production (Render), CORS_ORIGIN must be set to the frontend URL
+// e.g. CORS_ORIGIN=https://clariva-idea-hub-clariva-web.vercel.app
+// Without this, cross-origin session cookies will be rejected → 401 errors after login.
+if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGIN) {
+  throw new Error(
+    "CORS_ORIGIN environment variable is required in production. " +
+      "Set it to your frontend URL (e.g. https://clariva-idea-hub-clariva-web.vercel.app) " +
+      "in your Render service environment variables.",
+  );
+}
+
 declare module "express-session" {
   interface SessionData {
     userId: number;

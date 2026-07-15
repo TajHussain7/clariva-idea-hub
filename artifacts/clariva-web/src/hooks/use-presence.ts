@@ -66,7 +66,6 @@ export function useWebSocket(teamId: number | null, enabled = true) {
         wsRef.current = new WebSocket(wsUrl);
 
         wsRef.current.onopen = () => {
-          console.log("[WebSocket] Connected");
           reconnectAttempts.current = 0;
           // Subscribe to team
           wsRef.current?.send(JSON.stringify({ type: "subscribe", teamId }));
@@ -100,7 +99,6 @@ export function useWebSocket(teamId: number | null, enabled = true) {
         };
 
         wsRef.current.onclose = () => {
-          console.log("[WebSocket] Disconnected");
           wsRef.current = null;
 
           if (reconnectAttempts.current < maxReconnectAttempts) {
