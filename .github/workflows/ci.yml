@@ -52,6 +52,3 @@ jobs:
 
       - name: Build backend Docker image
         run: docker build -f artifacts/api-server/Dockerfile .
-
-      - name: Build frontend Docker image
-        run: docker build --build-arg VITE_API_URL=http://localhost:3000 -f artifacts/clariva-web/Dockerfile .

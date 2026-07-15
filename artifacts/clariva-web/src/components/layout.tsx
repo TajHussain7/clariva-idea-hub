@@ -16,6 +16,7 @@ import {
   Settings,
   Zap,
   Sparkles,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,6 +74,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const mainNavItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/submit", label: "My Ideas", icon: Lightbulb },
+    { href: "/teams", label: "Teams", icon: Users },
     { href: "/compare", label: "Compare", icon: GitCompare },
   ];
 
