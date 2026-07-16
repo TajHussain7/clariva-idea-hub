@@ -2,13 +2,49 @@ import { logger } from "./logger.js";
 
 // ─── Brevo Email Client ──────────────────────────────────────────────────────
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const rawApiKey = process.env.BREVO_API_KEY;
+const BREVO_API_KEY = rawApiKey?.trim().replace(/^["']|["']$/g, "");
 const FROM = process.env.SMTP_FROM ?? "Clariva <noreply@clariva.com>";
 
 interface Sender {
   name: string;
   email: string;
 }
+
+/**
+ * Validate and log diagnostic details about the API key.
+ */
+function validateApiKey(key: string | undefined) {
+  if (!key) {
+    logger.warn("BREVO_API_KEY is not configured. Emails will be logged to the console.");
+    return;
+  }
+
+  const len = key.length;
+  const prefix = key.slice(0, 8);
+  const hasAsterisks = key.includes("*");
+
+  logger.info(
+    { length: len, prefix, hasAsterisks },
+    "Diagnosing BREVO_API_KEY configuration..."
+  );
+
+  if (hasAsterisks) {
+    logger.error(
+      "BREVO_API_KEY contains asterisks ('*'). You likely copied a masked key from the Brevo dashboard. Please generate a NEW API Key and copy it immediately before closing the dialog."
+    );
+  } else if (prefix === "xsmtpsib") {
+    logger.error(
+      "BREVO_API_KEY starts with 'xsmtpsib-', which is an SMTP key. Brevo's v3 HTTP API requires a v3 API Key (starts with 'xkeysib-'). Please generate a v3 API Key under SMTP & API > API Keys in Brevo and update it in Render."
+    );
+  } else if (prefix !== "xkeysib-") {
+    logger.warn(
+      `BREVO_API_KEY prefix is '${prefix}'. Typically, Brevo v3 API Keys start with 'xkeysib-'. Please verify you are using the correct key.`
+    );
+  }
+}
+
+validateApiKey(BREVO_API_KEY);
 
 /**
  * Parse an email sender string of format "Name <email@domain.com>" or just "email@domain.com".
