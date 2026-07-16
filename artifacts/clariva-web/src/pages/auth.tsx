@@ -18,7 +18,7 @@ import {
   Zap,
   ArrowRight,
 } from "lucide-react";
-import { useLogin, useRegister } from "@workspace/api-client-react";
+import { useLogin, useRegister, setAuthTokenGetter } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -101,7 +101,11 @@ export function Auth() {
     loginMutation.mutate(
       { data },
       {
-        onSuccess: () => {
+        onSuccess: (response) => {
+          if (response?.token) {
+            localStorage.setItem("auth_token", response.token);
+            setAuthTokenGetter(() => response.token!);
+          }
           queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
           setLocation("/dashboard");
         },
@@ -120,7 +124,11 @@ export function Auth() {
     registerMutation.mutate(
       { data },
       {
-        onSuccess: () => {
+        onSuccess: (response) => {
+          if (response?.token) {
+            localStorage.setItem("auth_token", response.token);
+            setAuthTokenGetter(() => response.token!);
+          }
           queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
           setLocation("/dashboard");
         },

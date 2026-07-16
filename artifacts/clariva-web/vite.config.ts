@@ -8,10 +8,7 @@ const basePath = process.env.BASE_PATH || "/";
 
 export default defineConfig({
   base: basePath,
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
@@ -33,7 +30,7 @@ export default defineConfig({
       strict: true,
     },
     // In development, proxy /api calls to the local API server.
-    // In production on Vercel, VITE_API_URL is used instead (see main.tsx).
+    // Production uses same-origin /api rewrites on Vercel (see main.tsx).
     proxy: {
       "/api": {
         target: process.env.VITE_API_URL || "http://localhost:3000",
@@ -47,4 +44,3 @@ export default defineConfig({
     allowedHosts: true,
   },
 });
-

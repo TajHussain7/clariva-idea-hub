@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -14,6 +15,19 @@ import {
 
 const router: IRouter = Router();
 const SALT_ROUNDS = 12;
+
+function getSessionToken(req: any): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("SESSION_SECRET environment variable is not set");
+  }
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(req.sessionID)
+    .digest("base64")
+    .replace(/=+$/, "");
+  return `s:${req.sessionID}.${signature}`;
+}
 const MAX_AVATAR_URL_LENGTH = 2.5 * 1024 * 1024;
 
 function isAllowedAvatarValue(value: string) {
@@ -104,6 +118,7 @@ router.post(
 
     res.status(201).json({
       ...toAuthUser(user),
+      token: getSessionToken(req),
     });
   },
 );
@@ -137,6 +152,7 @@ router.post("/auth/login", loginLimiter, async (req, res): Promise<void> => {
 
   res.json({
     ...toAuthUser(user),
+    token: getSessionToken(req),
   });
 });
 
