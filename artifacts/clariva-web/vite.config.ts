@@ -30,7 +30,7 @@ export default defineConfig({
       strict: true,
     },
     // In development, proxy /api calls to the local API server.
-    // Production uses same-origin /api rewrites on Vercel (see main.tsx).
+    // In production on Vercel, VITE_API_URL is used instead (see main.tsx).
     proxy: {
       "/api": {
         target: process.env.VITE_API_URL || "http://localhost:3000",
