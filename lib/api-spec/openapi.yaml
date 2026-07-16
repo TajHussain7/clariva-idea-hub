@@ -439,6 +439,8 @@ components:
         createdAt:
           type: string
           format: date-time
+        token:
+          type: string
       required:
         - id
         - email
