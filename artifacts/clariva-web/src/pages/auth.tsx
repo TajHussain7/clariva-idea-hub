@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -79,6 +79,12 @@ const features = [
 
 export function Auth() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  // Read ?tab=register from invitation links so new users land on the sign-up tab
+  const defaultTab =
+    new URLSearchParams(searchString).get("tab") === "register"
+      ? "register"
+      : "login";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const loginMutation = useLogin();
@@ -264,7 +270,7 @@ export function Auth() {
             Sign in to your account or create a new one to get started.
           </p>
 
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs defaultValue={defaultTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-7 bg-muted rounded-lg p-1">
               <TabsTrigger value="login" className="rounded-md font-semibold text-sm">
                 Sign In
