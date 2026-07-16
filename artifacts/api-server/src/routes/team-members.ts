@@ -12,6 +12,7 @@ import {
   requireTeamMember,
   requireTeamOwner,
 } from "../middlewares/team-auth.js";
+import { sendInvitationEmail } from "../lib/email.js";
 
 const router: IRouter = Router();
 
@@ -36,20 +37,21 @@ router.post(
     }
 
     try {
-      // Check if user already exists in team
-      const [user] = await db
+      // ── 1. Check if invited user already exists in the system ──────────────
+      const [existingUser] = await db
         .select()
         .from(usersTable)
         .where(eq(usersTable.email, email.toLowerCase()));
 
-      if (user) {
+      if (existingUser) {
+        // Already a member? Reject early.
         const [existingMember] = await db
           .select()
           .from(teamMembersTable)
           .where(
             and(
               eq(teamMembersTable.teamId, teamId),
-              eq(teamMembersTable.userId, user.id),
+              eq(teamMembersTable.userId, existingUser.id),
             ),
           );
 
@@ -61,28 +63,89 @@ router.post(
         }
       }
 
-      // Create or update invitation
-      const [invitation] = await db
-        .insert(teamInvitationsTable)
-        .values({
-          teamId,
-          email: email.toLowerCase(),
-          status: "pending",
-          invitedBy: userId,
-        })
-        .onConflictDoUpdate({
-          target: [teamInvitationsTable.teamId, teamInvitationsTable.email],
-          set: { status: "pending" },
-        })
-        .returning();
+      // ── 2. Fetch team and inviter details for the email ────────────────────
+      const [team] = await db
+        .select()
+        .from(teamsTable)
+        .where(eq(teamsTable.id, teamId));
 
-      // TODO: Send invitation email
+      if (!team) {
+        res.status(404).json({ error: "Team not found" });
+        return;
+      }
+
+      const [inviter] = await db
+        .select({ id: usersTable.id, name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId));
+
+      // ── 3. Upsert invitation (safe select-then-insert/update) ──────────────
+      // NOTE: We deliberately avoid .onConflictDoUpdate() here because it
+      // requires a unique index on (team_id, email) in the database that is
+      // not present in the current schema migration. The select-then-upsert
+      // pattern achieves the same idempotent behaviour without schema changes.
+      const [existingInvitation] = await db
+        .select()
+        .from(teamInvitationsTable)
+        .where(
+          and(
+            eq(teamInvitationsTable.teamId, teamId),
+            eq(teamInvitationsTable.email, email.toLowerCase()),
+          ),
+        );
+
+      let invitation;
+      if (existingInvitation) {
+        // Re-send: bump status back to pending so the user can act on it again.
+        const [updated] = await db
+          .update(teamInvitationsTable)
+          .set({ status: "pending", invitedBy: userId })
+          .where(eq(teamInvitationsTable.id, existingInvitation.id))
+          .returning();
+        invitation = updated;
+      } else {
+        const [inserted] = await db
+          .insert(teamInvitationsTable)
+          .values({
+            teamId,
+            email: email.toLowerCase(),
+            status: "pending",
+            invitedBy: userId,
+          })
+          .returning();
+        invitation = inserted;
+      }
+
+      // ── 4. Send invitation email ───────────────────────────────────────────
+      const frontendUrl =
+        process.env.FRONTEND_URL ?? "http://localhost:5173";
+      const isNewUser = !existingUser;
+      // New users land on /auth?tab=register so the Create Account tab is pre-selected.
+      // Existing users land on /auth so they can log in and then see the invitation.
+      const inviteLink = isNewUser
+        ? `${frontendUrl}/auth?tab=register`
+        : `${frontendUrl}/auth`;
+
+      // Fire-and-forget — a send failure must never block the API response.
+      sendInvitationEmail({
+        toEmail: email.toLowerCase(),
+        inviterName: inviter?.name ?? "A team member",
+        teamName: team.name,
+        inviteLink,
+        isNewUser,
+      }).catch((err) => {
+        // Log but do not propagate — invitation record already created.
+        console.error("[email] Failed to send invitation email:", err);
+      });
+
       res.status(201).json(invitation);
     } catch (error) {
+      console.error("[invite] Unexpected error:", error);
       res.status(500).json({ error: "Failed to send invitation" });
     }
   },
 );
+
 
 // GET /teams/:id/invitations - List pending invitations
 router.get(
