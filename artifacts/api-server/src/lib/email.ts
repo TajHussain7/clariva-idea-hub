@@ -1,3 +1,4 @@
+import nodemailer from "nodemailer";
 import { logger } from "./logger.js";
 
 // ─── Brevo Email Client ──────────────────────────────────────────────────────
@@ -10,41 +11,6 @@ interface Sender {
   name: string;
   email: string;
 }
-
-/**
- * Validate and log diagnostic details about the API key.
- */
-function validateApiKey(key: string | undefined) {
-  if (!key) {
-    logger.warn("BREVO_API_KEY is not configured. Emails will be logged to the console.");
-    return;
-  }
-
-  const len = key.length;
-  const prefix = key.slice(0, 8);
-  const hasAsterisks = key.includes("*");
-
-  logger.info(
-    { length: len, prefix, hasAsterisks },
-    "Diagnosing BREVO_API_KEY configuration..."
-  );
-
-  if (hasAsterisks) {
-    logger.error(
-      "BREVO_API_KEY contains asterisks ('*'). You likely copied a masked key from the Brevo dashboard. Please generate a NEW API Key and copy it immediately before closing the dialog."
-    );
-  } else if (prefix === "xsmtpsib") {
-    logger.error(
-      "BREVO_API_KEY starts with 'xsmtpsib-', which is an SMTP key. Brevo's v3 HTTP API requires a v3 API Key (starts with 'xkeysib-'). Please generate a v3 API Key under SMTP & API > API Keys in Brevo and update it in Render."
-    );
-  } else if (prefix !== "xkeysib-") {
-    logger.warn(
-      `BREVO_API_KEY prefix is '${prefix}'. Typically, Brevo v3 API Keys start with 'xkeysib-'. Please verify you are using the correct key.`
-    );
-  }
-}
-
-validateApiKey(BREVO_API_KEY);
 
 /**
  * Parse an email sender string of format "Name <email@domain.com>" or just "email@domain.com".
@@ -64,6 +30,50 @@ function parseSender(fromStr: string): Sender {
 }
 
 const sender = parseSender(FROM);
+
+// ─── Transport Mode Detection ────────────────────────────────────────────────
+
+let smtpTransporter: nodemailer.Transporter | null = null;
+let useHttpApi = false;
+
+if (BREVO_API_KEY) {
+  const len = BREVO_API_KEY.length;
+  const prefix = BREVO_API_KEY.slice(0, 8);
+  const hasAsterisks = BREVO_API_KEY.includes("*");
+
+  logger.info(
+    { length: len, prefix, hasAsterisks },
+    "Diagnosing BREVO_API_KEY configuration..."
+  );
+
+  if (hasAsterisks) {
+    logger.error(
+      "BREVO_API_KEY contains asterisks ('*'). You likely copied a masked key from the Brevo dashboard. Please generate a NEW API Key and copy it immediately before closing the dialog."
+    );
+  }
+
+  if (BREVO_API_KEY.startsWith("xkeysib-")) {
+    useHttpApi = true;
+    logger.info("Brevo v3 API Key detected. Using HTTP API for email delivery.");
+  } else {
+    // If it starts with xsmtpsib- or is any other string, fallback to SMTP using the key as password.
+    logger.info(
+      { user: sender.email },
+      `Brevo SMTP Key or custom key detected (${prefix}...). Initializing Nodemailer SMTP relay.`
+    );
+    smtpTransporter = nodemailer.createTransport({
+      host: "smtp-relay.brevo.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: sender.email,
+        pass: BREVO_API_KEY,
+      },
+    });
+  }
+} else {
+  logger.warn("BREVO_API_KEY is not configured. Emails will be logged to the console.");
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -187,31 +197,54 @@ export async function sendInvitationEmail(
     return;
   }
 
-  try {
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "api-key": BREVO_API_KEY,
-      },
-      body: JSON.stringify({
-        sender,
-        to: [{ email: toEmail }],
-        subject,
-        htmlContent: html,
-        textContent: text,
-      }),
-    });
+  if (useHttpApi) {
+    try {
+      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "api-key": BREVO_API_KEY,
+        },
+        body: JSON.stringify({
+          sender,
+          to: [{ email: toEmail }],
+          subject,
+          htmlContent: html,
+          textContent: text,
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Brevo API responded with status ${response.status}: ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Brevo API responded with status ${response.status}: ${errorText}`);
+      }
+
+      logger.info({ to: toEmail, subject }, "Invitation email sent via Brevo HTTP API");
+    } catch (error) {
+      logger.error({ error, to: toEmail }, "Failed to send invitation email via Brevo HTTP API");
+      throw error;
     }
-
-    logger.info({ to: toEmail, subject }, "Invitation email sent via Brevo API");
-  } catch (error) {
-    logger.error({ error, to: toEmail }, "Failed to send invitation email via Brevo API");
-    throw error;
+  } else if (smtpTransporter) {
+    try {
+      await smtpTransporter.sendMail({
+        from: FROM,
+        to: toEmail,
+        subject,
+        text,
+        html,
+      });
+      logger.info({ to: toEmail, subject }, "Invitation email sent via Brevo SMTP Relay");
+    } catch (error) {
+      logger.error({ error, to: toEmail }, "Failed to send invitation email via Brevo SMTP Relay");
+      throw error;
+    }
+  } else {
+    logger.warn("Brevo configuration is present but transport mode is undetermined. Logging to console.");
+    console.log("\n========== INVITATION EMAIL (undetermined transport fallback) ==========");
+    console.log(`To:      ${toEmail}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`Link:    ${inviteLink}`);
+    console.log("========================================================================\n");
   }
 }
