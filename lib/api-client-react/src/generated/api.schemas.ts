@@ -73,6 +73,7 @@ export interface AuthUser {
   language?: string | null;
   notifications?: UserNotifications;
   createdAt: string;
+  token?: string;
 }
 
 export interface CreateIdeaBody {

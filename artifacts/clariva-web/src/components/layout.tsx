@@ -24,6 +24,7 @@ import {
   useLogout,
   useUpdateMe,
   getGetMeQueryKey,
+  setAuthTokenGetter,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@/hooks/use-theme";
@@ -32,11 +33,20 @@ import { getUserInitials } from "@/lib/user";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
-  const { data: user } = useGetMe();
+  const { data: user, isLoading } = useGetMe();
   const logoutMutation = useLogout();
   const queryClient = useQueryClient();
   const { theme, toggleTheme, setTheme } = useTheme();
   const updateMeMutation = useUpdateMe();
+
+  // Redirect unauthenticated users to login page
+  useEffect(() => {
+    if (!isLoading && !user) {
+      localStorage.removeItem("auth_token");
+      setAuthTokenGetter(null);
+      setLocation("/auth");
+    }
+  }, [user, isLoading, setLocation]);
 
   // Sync theme from database settings
   useEffect(() => {
@@ -65,6 +75,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
+        localStorage.removeItem("auth_token");
+        setAuthTokenGetter(null);
         queryClient.clear();
         setLocation("/auth");
       },

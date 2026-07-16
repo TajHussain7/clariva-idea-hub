@@ -92,6 +92,23 @@ app.use(
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
+// Support token-based authentication via Authorization: Bearer <signed-session-id>
+// to bypass browser third-party cookie restrictions when the frontend and API
+// are on different top-level domains (e.g. Vercel + Render).
+app.use((req, _res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    if (token) {
+      const sessionCookie = `connect.sid=${encodeURIComponent(token)}`;
+      req.headers.cookie = req.headers.cookie
+        ? `${sessionCookie}; ${req.headers.cookie}`
+        : sessionCookie;
+    }
+  }
+  next();
+});
+
 app.use(
   session({
     store: new PgSession({

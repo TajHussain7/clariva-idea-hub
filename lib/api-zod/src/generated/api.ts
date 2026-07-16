@@ -68,6 +68,7 @@ export const LoginResponse = zod.object({
   language: zod.string().nullish(),
   notifications: UserNotifications.nullish(),
   createdAt: zod.coerce.date(),
+  token: zod.string().optional(),
 });
 
 /**
@@ -85,6 +86,7 @@ export const GetMeResponse = zod.object({
   language: zod.string().nullish(),
   notifications: UserNotifications.nullish(),
   createdAt: zod.coerce.date(),
+  token: zod.string().optional(),
 });
 
 /**
