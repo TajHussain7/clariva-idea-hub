@@ -18,13 +18,17 @@ import {
   Wand2,
   Loader2,
   ArrowRight,
+  Globe,
 } from "lucide-react";
 import {
   useGetIdea,
   useAnalyzeIdea,
   getGetIdeaQueryKey,
+  fetcher,
 } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
+import { PublishIdeaModal } from "@/components/publish-idea-modal";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -296,6 +300,16 @@ export function Results({ id }: { id: number }) {
   const queryClient = useQueryClient();
   const analyzeMutation = useAnalyzeIdea();
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+
+  const { data: publishStatus } = useQuery<{
+    published: boolean;
+    publicIdea: { id: number; isAnonymous: boolean } | null;
+  }>({
+    queryKey: ["feed-status", id],
+    queryFn: () => fetcher(`/api/feed/status/${id}`),
+    enabled: !!id,
+  });
 
   const {
     data: idea,
@@ -432,7 +446,7 @@ export function Results({ id }: { id: number }) {
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           {isAnalyzed && a && (
             <Button
               variant="outline"
@@ -448,6 +462,19 @@ export function Results({ id }: { id: number }) {
                 <FileDown className="w-4 h-4" />
               )}
               Export PDF
+            </Button>
+          )}
+
+          {isAnalyzed && (
+            <Button
+              variant={publishStatus?.published ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPublishModalOpen(true)}
+              className="gap-2"
+              data-testid="button-publish"
+            >
+              <Globe className="w-4 h-4" />
+              {publishStatus?.published ? "Published" : "Publish"}
             </Button>
           )}
 
@@ -468,6 +495,19 @@ export function Results({ id }: { id: number }) {
           )}
         </div>
       </div>
+
+      {/* Publish Modal */}
+      <PublishIdeaModal
+        ideaId={id}
+        ideaTitle={idea.title}
+        isPublished={publishStatus?.published ?? false}
+        isAnonymous={publishStatus?.publicIdea?.isAnonymous}
+        open={publishModalOpen}
+        onOpenChange={setPublishModalOpen}
+        onSuccess={() =>
+          queryClient.invalidateQueries({ queryKey: ["feed-status", id] })
+        }
+      />
 
       {/* ---- Processing State ---- */}
       {isProcessing && (
