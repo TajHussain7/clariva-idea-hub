@@ -16,6 +16,8 @@ import { Insights } from "@/pages/insights";
 import { Settings } from "@/pages/settings";
 import { Teams } from "@/pages/teams";
 import { TeamDetail } from "@/pages/team-detail";
+import { Feed } from "@/pages/feed";
+import { Challenges } from "@/pages/challenges";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -85,6 +87,16 @@ function Router() {
             <TeamDetail teamId={parseInt(params.id)} />
           </Layout>
         )}
+      </Route>
+      <Route path="/feed">
+        <Layout>
+          <Feed />
+        </Layout>
+      </Route>
+      <Route path="/challenges">
+        <Layout>
+          <Challenges />
+        </Layout>
       </Route>
       <Route component={NotFound} />
     </Switch>
