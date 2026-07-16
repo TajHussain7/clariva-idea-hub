@@ -17,6 +17,8 @@ import {
   Zap,
   Sparkles,
   Users,
+  Globe,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,6 +90,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/submit", label: "My Ideas", icon: Lightbulb },
     { href: "/teams", label: "Teams", icon: Users },
     { href: "/compare", label: "Compare", icon: GitCompare },
+    { href: "/feed", label: "Public Feed", icon: Globe },
+    { href: "/challenges", label: "Weekly Challenge", icon: Trophy },
   ];
 
   const insightNavItems = [

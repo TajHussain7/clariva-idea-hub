@@ -8,6 +8,8 @@ export function setupWebSocket(app: Express) {
   expressWs(app);
 
   const wsClients: Map<number, Set<WebSocket>> = new Map(); // teamId -> Set of clients
+  const feedClients: Set<WebSocket> = new Set(); // global feed subscribers
+  const challengeClients: Map<number, Set<WebSocket>> = new Map(); // challengeId -> Set of clients
 
   (app as any).ws("/api/ws", (ws: any, req: Request) => {
     const userId = (req.session as any)?.userId;
@@ -18,6 +20,8 @@ export function setupWebSocket(app: Express) {
     }
 
     let currentTeamId: number | null = null;
+    let subscribedToFeed = false;
+    let currentChallengeId: number | null = null;
 
     ws.on("message", async (data: string) => {
       try {
@@ -33,7 +37,6 @@ export function setupWebSocket(app: Express) {
 
           currentTeamId = teamId;
 
-          // Add client to team's WebSocket group
           if (!wsClients.has(teamId)) {
             wsClients.set(teamId, new Set());
           }
@@ -59,7 +62,6 @@ export function setupWebSocket(app: Express) {
               },
             });
 
-          // Broadcast presence update to team
           broadcastToTeam(teamId, {
             type: "presence_update",
             userId,
@@ -68,11 +70,9 @@ export function setupWebSocket(app: Express) {
 
           ws.send(JSON.stringify({ type: "subscribed", teamId }));
         } else if (message.type === "unsubscribe") {
-          // Unsubscribe from team
           if (currentTeamId) {
             wsClients.get(currentTeamId)?.delete(ws);
 
-            // Update presence
             await db
               .insert(userPresenceTable)
               .values({
@@ -98,8 +98,36 @@ export function setupWebSocket(app: Express) {
 
             currentTeamId = null;
           }
+        } else if (message.type === "subscribe_feed") {
+          // Subscribe to the global public feed channel
+          feedClients.add(ws);
+          subscribedToFeed = true;
+          ws.send(JSON.stringify({ type: "subscribed_feed" }));
+        } else if (message.type === "unsubscribe_feed") {
+          feedClients.delete(ws);
+          subscribedToFeed = false;
+        } else if (message.type === "subscribe_challenge") {
+          const challengeId = message.challengeId;
+          if (!challengeId || typeof challengeId !== "number") {
+            ws.send(
+              JSON.stringify({ type: "error", error: "Invalid challengeId" }),
+            );
+            return;
+          }
+          currentChallengeId = challengeId;
+          if (!challengeClients.has(challengeId)) {
+            challengeClients.set(challengeId, new Set());
+          }
+          challengeClients.get(challengeId)!.add(ws);
+          ws.send(
+            JSON.stringify({ type: "subscribed_challenge", challengeId }),
+          );
+        } else if (message.type === "unsubscribe_challenge") {
+          if (currentChallengeId) {
+            challengeClients.get(currentChallengeId)?.delete(ws);
+            currentChallengeId = null;
+          }
         } else if (message.type === "ping") {
-          // Keep-alive heartbeat
           ws.send(JSON.stringify({ type: "pong" }));
         }
       } catch (error) {
@@ -108,10 +136,14 @@ export function setupWebSocket(app: Express) {
     });
 
     ws.on("close", async () => {
+      // Clean up feed / challenge subscriptions
+      if (subscribedToFeed) feedClients.delete(ws);
+      if (currentChallengeId)
+        challengeClients.get(currentChallengeId)?.delete(ws);
+
       if (currentTeamId) {
         wsClients.get(currentTeamId)?.delete(ws);
 
-        // Update presence on disconnect
         await db
           .insert(userPresenceTable)
           .values({
@@ -147,16 +179,32 @@ export function setupWebSocket(app: Express) {
     if (clients) {
       const data = JSON.stringify(message);
       clients.forEach((client) => {
-        if (client.readyState === 1) {
-          // OPEN
-          client.send(data);
-        }
+        if (client.readyState === 1) client.send(data);
       });
     }
   }
 
-  // Store broadcast function globally for use in routes
+  function broadcastToFeed(message: any) {
+    const data = JSON.stringify(message);
+    feedClients.forEach((client) => {
+      if (client.readyState === 1) client.send(data);
+    });
+  }
+
+  function broadcastToChallenge(challengeId: number, message: any) {
+    const clients = challengeClients.get(challengeId);
+    if (clients) {
+      const data = JSON.stringify(message);
+      clients.forEach((client) => {
+        if (client.readyState === 1) client.send(data);
+      });
+    }
+  }
+
+  // Register broadcast helpers globally so routes can use them
   (global as any).broadcastToTeam = broadcastToTeam;
+  (global as any).broadcastToFeed = broadcastToFeed;
+  (global as any).broadcastToChallenge = broadcastToChallenge;
 }
 
 export default setupWebSocket;
