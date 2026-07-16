@@ -1,35 +1,33 @@
-import nodemailer from "nodemailer";
 import { logger } from "./logger.js";
 
-// ─── Transporter ─────────────────────────────────────────────────────────────
+// ─── Brevo Email Client ──────────────────────────────────────────────────────
 
-/**
- * Build a nodemailer transporter from environment variables.
- * Returns null when SMTP credentials are not configured — in that
- * case every send call falls back to console logging so development
- * works without any email infrastructure.
- */
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const secure = process.env.SMTP_SECURE === "true";
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const FROM = process.env.SMTP_FROM ?? "Clariva <noreply@clariva.com>";
 
-  if (!host || !user || !pass) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-  });
+interface Sender {
+  name: string;
+  email: string;
 }
 
-const transporter = createTransporter();
-const FROM = process.env.SMTP_FROM ?? "Clariva <noreply@clariva.com>";
+/**
+ * Parse an email sender string of format "Name <email@domain.com>" or just "email@domain.com".
+ */
+function parseSender(fromStr: string): Sender {
+  const match = fromStr.match(/^(.*?)\s*<(.*?)>$/);
+  if (match) {
+    return {
+      name: match[1].trim(),
+      email: match[2].trim(),
+    };
+  }
+  return {
+    name: "Clariva",
+    email: fromStr.trim(),
+  };
+}
+
+const sender = parseSender(FROM);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,8 +71,8 @@ function buildInvitationHtml(payload: InvitationEmailPayload): string {
             <td style="background:linear-gradient(135deg,#1a1a3e 0%,#0D0C22 100%);padding:32px 40px;border-bottom:1px solid rgba(255,255,255,0.06);">
               <table cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background:#57dffe;border-radius:10px;padding:8px 10px;vertical-align:middle;">
-                    <span style="font-size:18px;">*</span>
+                  <td style="background:#57dffe;border-radius:10px;padding:8px 10px;vertical-align:middle;text-align:center;line-height:1;">
+                    <span style="font-size:20px;color:#0D0C22;font-weight:bold;line-height:1;">✦</span>
                   </td>
                   <td style="padding-left:12px;vertical-align:middle;">
                     <span style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">Clariva</span>
@@ -128,8 +126,8 @@ function buildInvitationHtml(payload: InvitationEmailPayload): string {
 /**
  * Send a team invitation email.
  *
- * When SMTP is not configured (local development), the invitation link
- * is printed to the console so developers can test without a mail server.
+ * When Brevo API key is not configured (local development), the invitation link
+ * is printed to the console so developers can test without an email service.
  */
 export async function sendInvitationEmail(
   payload: InvitationEmailPayload,
@@ -139,8 +137,8 @@ export async function sendInvitationEmail(
   const html = buildInvitationHtml(payload);
   const text = `You've been invited to join the team "${teamName}" on Clariva.\nClick here to accept: ${inviteLink}`;
 
-  if (!transporter) {
-    // Development / no SMTP configured — log so the invite link is accessible.
+  if (!BREVO_API_KEY) {
+    // Development / no Brevo API configured — log so the invite link is accessible.
     logger.info(
       { to: toEmail, subject, inviteLink },
       "[Email – console fallback] Team invitation email",
@@ -153,6 +151,31 @@ export async function sendInvitationEmail(
     return;
   }
 
-  await transporter.sendMail({ from: FROM, to: toEmail, subject, text, html });
-  logger.info({ to: toEmail, subject }, "Invitation email sent");
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": BREVO_API_KEY,
+      },
+      body: JSON.stringify({
+        sender,
+        to: [{ email: toEmail }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Brevo API responded with status ${response.status}: ${errorText}`);
+    }
+
+    logger.info({ to: toEmail, subject }, "Invitation email sent via Brevo API");
+  } catch (error) {
+    logger.error({ error, to: toEmail }, "Failed to send invitation email via Brevo API");
+    throw error;
+  }
 }
