@@ -26,6 +26,16 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -116,6 +126,7 @@ export function Dashboard() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const { data: user } = useGetMe();
@@ -168,18 +179,25 @@ export function Dashboard() {
   const handleDelete = (id: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (confirm("Are you sure you want to delete this idea?")) {
-      deleteMutation.mutate(
-        { id },
-        {
-          onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: getListIdeasQueryKey() });
-            toast({ title: "Idea deleted" });
-            setSelectedIds((prev) => prev.filter((x) => x !== id));
-          },
-        },
-      );
+    setDeleteTargetId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTargetId === null) {
+      return;
     }
+
+    deleteMutation.mutate(
+      { id: deleteTargetId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListIdeasQueryKey() });
+          toast({ title: "Idea deleted" });
+          setSelectedIds((prev) => prev.filter((x) => x !== deleteTargetId));
+          setDeleteTargetId(null);
+        },
+      },
+    );
   };
 
   return (
@@ -645,6 +663,31 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      <AlertDialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTargetId(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this idea?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the idea from your dashboard. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
+              Delete idea
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
