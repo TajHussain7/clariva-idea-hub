@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -10,10 +10,8 @@ import {
   ShieldCheck,
   TrendingUp,
   CheckCircle2,
-  Check,
   X,
   ArrowRight,
-  ArrowLeft,
   Compass,
   BookOpen,
 } from "lucide-react";
@@ -26,13 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -105,58 +97,12 @@ const resources = [
   { label: "Market Fit Guide", icon: BookOpen },
 ];
 
-const steps = [
-  { key: "basics", label: "Basics" },
-  { key: "details", label: "Details" },
-  { key: "tags", label: "Tags" },
-] as const;
-
-function Stepper({ step }: { step: number }) {
-  return (
-    <div className="flex items-center gap-3 mb-6" data-testid="stepper-submit">
-      {steps.map((s, i) => (
-        <div
-          key={s.key}
-          className="flex items-center gap-3 flex-1 last:flex-none"
-        >
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border-2 transition-colors ${
-                i < step
-                  ? "bg-primary border-primary text-primary-foreground"
-                  : i === step
-                    ? "border-primary text-primary"
-                    : "border-border text-muted-foreground"
-              }`}
-            >
-              {i < step ? <Check className="w-3.5 h-3.5" /> : i + 1}
-            </div>
-            <span
-              className={`text-sm font-medium whitespace-nowrap ${
-                i <= step ? "text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              {s.label}
-            </span>
-          </div>
-          {i < steps.length - 1 && (
-            <div
-              className={`h-px flex-1 ${i < step ? "bg-primary" : "bg-border"}`}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function Submit() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createIdeaMutation = useCreateIdea();
 
-  const [step, setStep] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
 
@@ -193,10 +139,10 @@ export function Submit() {
   const domain = form.watch("domain");
   const complexity = form.watch("complexity");
 
-  const addTag = () => {
-    const value = tagInput.trim();
-    if (value && !tags.includes(value) && tags.length < 8) {
-      setTags([...tags, value]);
+  const addTag = (value?: string) => {
+    const v = (value ?? tagInput).trim();
+    if (v && !tags.includes(v) && tags.length < 8) {
+      setTags((prev) => [...prev, v]);
     }
     setTagInput("");
   };
@@ -212,31 +158,6 @@ export function Submit() {
         "Your idea is saved on this device — come back anytime to finish it.",
     });
   };
-
-  const goNext = async (e?: MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    if (step === 0) {
-      const valid = await form.trigger([
-        "title",
-        "domain",
-        "domainOther",
-        "complexity",
-      ]);
-      if (!valid) return;
-      if (domain === "Other" && !form.getValues("domainOther")?.trim()) {
-        form.setError("domainOther", { message: "Please specify a domain" });
-        return;
-      }
-    }
-    if (step === 1) {
-      const valid = await form.trigger("description");
-      if (!valid) return;
-    }
-    setStep((s) => Math.min(s + 1, steps.length - 1));
-  };
-
-  const goBack = () => setStep((s) => Math.max(s - 1, 0));
 
   const onSubmit = (values: SubmitFormValues) => {
     const resolvedDomain =
@@ -294,292 +215,211 @@ export function Submit() {
         {/* ===== Main Form (left) ===== */}
         <div className="lg:col-span-3">
           <Card className="bg-card border-border shadow-sm">
-            <CardHeader className="border-b border-border pb-5">
-              <Stepper step={step} />
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <Rocket className="w-4 h-4 text-primary" />
-                {step === 0 && "The Basics"}
-                {step === 1 && "The Details"}
-                {step === 2 && "Tags & Review"}
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {step === 0 &&
-                  "Give your idea a name, a domain, and how complex it feels."}
-                {step === 1 &&
-                  "Be specific — the engine rewards sharp constraints and punishes vagueness."}
-                {step === 2 &&
-                  "Add optional tags to organize your idea, then submit for analysis."}
-              </CardDescription>
-            </CardHeader>
-
             <CardContent className="pt-6">
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
                   className="space-y-6"
                 >
-                  {/* ===== Step 1: Basics ===== */}
-                  {step === 0 && (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                      <FormField
-                        control={form.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">
-                              Idea Title
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="e.g., Decentralized Cloud for Designers"
-                                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-                                {...field}
-                                data-testid="input-idea-title"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="domain"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">
-                                Domain
-                              </FormLabel>
-                              <Select
-                                value={field.value}
-                                onValueChange={field.onChange}
-                              >
-                                <FormControl>
-                                  <SelectTrigger
-                                    className="h-10 bg-background border-border"
-                                    data-testid="select-idea-domain"
-                                  >
-                                    <SelectValue placeholder="Select a domain" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {domainOptions.map((d) => (
-                                    <SelectItem key={d} value={d}>
-                                      {d}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="complexity"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">
-                                Complexity
-                              </FormLabel>
-                              <FormControl>
-                                <div className="grid grid-cols-3 gap-2">
-                                  {complexityOptions.map((opt) => (
-                                    <button
-                                      key={opt.value}
-                                      type="button"
-                                      onClick={() => field.onChange(opt.value)}
-                                      className={`h-10 rounded-md text-sm font-semibold border transition-colors ${
-                                        complexity === opt.value
-                                          ? "bg-primary text-primary-foreground border-primary"
-                                          : "bg-background text-foreground border-border hover:border-primary/40"
-                                      }`}
-                                      data-testid={`button-complexity-${opt.label.toLowerCase()}`}
-                                    >
-                                      {opt.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {domain === "Other" && (
-                        <FormField
-                          control={form.control}
-                          name="domainOther"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">
-                                Specify domain
-                              </FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="e.g., Climate Tech"
-                                  className="h-10 bg-background border-border"
-                                  {...field}
-                                  data-testid="input-idea-domain-other"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* ===== Step 2: Details ===== */}
-                  {step === 1 && (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                      <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">
-                              Description
-                            </FormLabel>
-                            <FormControl>
-                              <Textarea
-                                placeholder="Describe the problem you are solving and your unique solution..."
-                                className="min-h-[220px] bg-background resize-y border-border focus-visible:ring-primary/30 focus-visible:border-primary text-sm leading-relaxed"
-                                {...field}
-                                data-testid="textarea-idea-description"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {/* ===== Step 3: Tags ===== */}
-                  {step === 2 && (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                          Optional Tags (Press Enter)
-                        </label>
-                        <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-md border border-border bg-background min-h-10">
-                          {tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                            >
-                              {tag}
-                              <button
-                                type="button"
-                                onClick={() => removeTag(tag)}
-                                className="rounded-full hover:bg-primary/20 p-0.5"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </span>
-                          ))}
-                          <input
-                            value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                addTag();
-                              }
-                            }}
-                            placeholder={tags.length === 0 ? "Add tags..." : ""}
-                            className="flex-1 min-w-[100px] bg-transparent text-sm outline-none py-1"
-                            data-testid="input-idea-tags"
+                  {/* Idea Title */}
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">
+                          Idea Title
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Decentralized Cloud for Designers"
+                            className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                            {...field}
+                            data-testid="input-idea-title"
                           />
-                        </div>
-                      </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                      {/* Review summary */}
-                      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2 text-sm">
-                        <p className="font-semibold text-foreground">
-                          Ready to analyze
-                        </p>
-                        <p className="text-muted-foreground">
-                          <span className="text-foreground font-medium">
-                            {form.getValues("title") || "Untitled idea"}
-                          </span>{" "}
-                          in{" "}
-                          {domain === "Other"
-                            ? form.getValues("domainOther") ||
-                              "an unspecified domain"
-                            : domain}
-                          , complexity:{" "}
-                          {
-                            complexityOptions.find(
-                              (o) => o.value === complexity,
-                            )?.label
-                          }
-                          .
-                        </p>
-                      </div>
-                    </div>
+                  {/* Domain + Complexity row */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="domain"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">
+                            Domain
+                          </FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                          >
+                            <FormControl>
+                              <SelectTrigger
+                                className="h-10 bg-background border-border"
+                                data-testid="select-idea-domain"
+                              >
+                                <SelectValue placeholder="Select a domain" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {domainOptions.map((d) => (
+                                <SelectItem key={d} value={d}>
+                                  {d}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="complexity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">
+                            Complexity
+                          </FormLabel>
+                          <FormControl>
+                            <div className="grid grid-cols-3 gap-2">
+                              {complexityOptions.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => field.onChange(opt.value)}
+                                  className={`h-10 rounded-md text-sm font-semibold border transition-colors ${
+                                    complexity === opt.value
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-background text-foreground border-border hover:border-primary/40"
+                                  }`}
+                                  data-testid={`button-complexity-${opt.label.toLowerCase()}`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Domain Other */}
+                  {domain === "Other" && (
+                    <FormField
+                      control={form.control}
+                      name="domainOther"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-medium">
+                            Specify domain
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g., Climate Tech"
+                              className="h-10 bg-background border-border"
+                              {...field}
+                              data-testid="input-idea-domain-other"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
 
-                  {/* ===== Navigation ===== */}
-                  <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
-                    <div>
-                      {step > 0 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={goBack}
-                          className="gap-1.5"
+                  {/* Description */}
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium">
+                          Description
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Describe the problem you are solving and your unique solution..."
+                            className="min-h-[160px] bg-background resize-y border-border focus-visible:ring-primary/30 focus-visible:border-primary text-sm leading-relaxed"
+                            {...field}
+                            data-testid="textarea-idea-description"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Optional Tags */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Optional Tags (Press Enter)
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-md border border-border bg-background min-h-10">
+                      {tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
                         >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          Back
-                        </Button>
-                      )}
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => removeTag(tag)}
+                            className="rounded-full hover:bg-primary/20 p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addTag();
+                          }
+                        }}
+                        placeholder={tags.length === 0 ? "Add tags..." : ""}
+                        className="flex-1 min-w-[100px] bg-transparent text-sm outline-none py-1"
+                        data-testid="input-idea-tags"
+                      />
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSaveDraft}
-                      >
-                        Save Draft
-                      </Button>
-                      {step < steps.length - 1 ? (
-                        <Button
-                          type="button"
-                          size="default"
-                          className="gap-1.5"
-                          onClick={goNext}
-                          data-testid="button-next-step"
-                        >
-                          Continue
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </Button>
+                  </div>
+
+                  {/* Form Actions */}
+                  <div className="flex items-center justify-end gap-3 pt-2 border-t border-border mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSaveDraft}
+                    >
+                      Save Draft
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="default"
+                      className="gap-2 transition-all duration-150 active:scale-[0.98]"
+                      disabled={createIdeaMutation.isPending}
+                      data-testid="button-submit-idea"
+                    >
+                      {createIdeaMutation.isPending ? (
+                        "Initializing engine..."
                       ) : (
-                        <Button
-                          type="submit"
-                          size="default"
-                          className="gap-2 transition-all duration-150 active:scale-[0.98]"
-                          disabled={createIdeaMutation.isPending}
-                          data-testid="button-submit-idea"
-                        >
-                          {createIdeaMutation.isPending ? (
-                            "Initializing engine..."
-                          ) : (
-                            <>
-                              <Rocket className="w-4 h-4" />
-                              Analyze Idea
-                            </>
-                          )}
-                        </Button>
+                        <>
+                          <Rocket className="w-4 h-4" />
+                          Analyze Idea
+                        </>
                       )}
-                    </div>
+                    </Button>
                   </div>
                 </form>
               </Form>
@@ -641,6 +481,13 @@ export function Submit() {
                 Explore the top-rated community concepts.
               </p>
             </div>
+            <div
+              className="absolute inset-0 opacity-30"
+              style={{
+                backgroundImage:
+                  "radial-gradient(ellipse at 60% 30%, rgba(99,102,241,0.6) 0%, transparent 50%)",
+              }}
+            />
           </div>
         </div>
       </div>

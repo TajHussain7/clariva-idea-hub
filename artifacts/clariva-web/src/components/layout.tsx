@@ -64,11 +64,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const handleToggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     toggleTheme();
+    if (user) {
+      queryClient.setQueryData(getGetMeQueryKey(), {
+        ...user,
+        theme: nextTheme,
+      });
+    }
     updateMeMutation.mutate(
       { data: { theme: nextTheme } },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        onError: () => {
+          toggleTheme();
+          if (user) {
+            queryClient.setQueryData(getGetMeQueryKey(), user);
+          }
         },
       },
     );
@@ -170,15 +179,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Upgrade Banner */}
         <div className="px-4 pb-2">
-          <div className="rounded-xl p-4 border border-sidebar-border bg-sidebar-accent/40">
-            <p className="text-xs font-medium mb-2 text-sidebar-foreground/60">
-              Limit reached
-            </p>
-            <div className="h-1.5 w-full rounded-full mb-3 bg-sidebar-accent">
-              <div className="h-1.5 rounded-full w-[85%] bg-sidebar-primary" />
-            </div>
-            <button className="w-full py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-95 bg-sidebar-primary text-sidebar-primary-foreground">
-              Upgrade to Pro
+          <div className="rounded-xl p-4" style={{ background: "linear-gradient(135deg, #4338ca 0%, #6d28d9 100%)" }}>
+            <p className="text-xs font-bold text-white mb-1">Upgrade to Pro</p>
+            <p className="text-[11px] text-white/70 mb-3 leading-snug">Unlock unlimited AI Insights</p>
+            <button className="w-full py-2 rounded-lg text-xs font-bold transition-all duration-150 active:scale-95 bg-white text-indigo-700 hover:bg-white/90">
+              Upgrade Now
             </button>
           </div>
         </div>
@@ -263,6 +268,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-primary rounded-full border border-card" />
             </button>
             <div className="w-px h-6 bg-border mx-1" />
+            <Link href="/submit">
+              <Button size="sm" className="gap-1.5 text-xs px-3">
+                <PlusCircle className="w-3.5 h-3.5" />
+                New Idea
+              </Button>
+            </Link>
             {/* User chip */}
             <div className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-muted transition-colors cursor-default">
               <div
