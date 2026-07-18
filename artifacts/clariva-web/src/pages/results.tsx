@@ -19,6 +19,10 @@ import {
   Loader2,
   ArrowRight,
   Globe,
+  Pencil,
+  Sparkles,
+  XCircle,
+  GitBranch,
 } from "lucide-react";
 import {
   useGetIdea,
@@ -40,71 +44,78 @@ import {
   type PivotSuggestion,
 } from "@/hooks/use-pivot-suggestions";
 
+type InsightTab = "strengths" | "weaknesses" | "risks" | "suggestions" | "techStack";
+
+/* ======================= SVG Radar Chart ======================= */
+function RadarChart({ scores }: { scores: { label: string; value: number }[] }) {
+  const size = 200;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 72;
+  const n = scores.length;
+  // cardinal angles: top, right, bottom, left for 4 dims
+  const angles = scores.map((_, i) => ((2 * Math.PI * i) / n) - Math.PI / 2);
+  const gridLevels = [0.25, 0.5, 0.75, 1.0];
+
+  const pointAt = (angle: number, fraction: number) => ({
+    x: cx + r * fraction * Math.cos(angle),
+    y: cy + r * fraction * Math.sin(angle),
+  });
+
+  const dataPoints = scores.map((s, i) =>
+    pointAt(angles[i], Math.min((s.value || 0) / 100, 1))
+  );
+  const dataPath = dataPoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") + " Z";
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {/* Grid rings */}
+      {gridLevels.map((f, gi) => {
+        const pts = angles.map(a => pointAt(a, f));
+        const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") + " Z";
+        return <path key={gi} d={d} fill="none" stroke="currentColor" strokeOpacity="0.1" strokeWidth="1" />;
+      })}
+      {/* Axis lines */}
+      {angles.map((a, i) => {
+        const end = pointAt(a, 1);
+        return <line key={i} x1={cx} y1={cy} x2={end.x.toFixed(1)} y2={end.y.toFixed(1)} stroke="currentColor" strokeOpacity="0.1" strokeWidth="1" />;
+      })}
+      {/* Data polygon */}
+      <path d={dataPath} fill="rgba(99,102,241,0.25)" stroke="rgb(99,102,241)" strokeWidth="2" strokeLinejoin="round" />
+      {/* Data points */}
+      {dataPoints.map((p, i) => (
+        <circle key={i} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="4" fill="rgb(99,102,241)" />
+      ))}
+      {/* Labels */}
+      {scores.map((s, i) => {
+        const lp = pointAt(angles[i], 1.22);
+        return (
+          <text
+            key={i}
+            x={lp.x.toFixed(1)}
+            y={lp.y.toFixed(1)}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize="9"
+            fontWeight="600"
+            fill="currentColor"
+            fillOpacity="0.6"
+            style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}
+          >
+            {s.label.slice(0, 3).toUpperCase()}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
 /* ======================= Score helpers ======================= */
 function scoreColor(score: number) {
   if (score >= 80) return "text-emerald-500";
   if (score >= 60) return "text-primary";
   if (score >= 40) return "text-amber-500";
   return "text-destructive";
-}
-
-function scoreLabel(score: number) {
-  if (score >= 80)
-    return {
-      label: "Excellent",
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10 border-emerald-500/20",
-    };
-  if (score >= 60)
-    return {
-      label: "Good",
-      color: "text-primary",
-      bg: "bg-primary/10 border-primary/20",
-    };
-  if (score >= 40)
-    return {
-      label: "Fair",
-      color: "text-amber-500",
-      bg: "bg-amber-500/10 border-amber-500/20",
-    };
-  return {
-    label: "Poor",
-    color: "text-destructive",
-    bg: "bg-destructive/10 border-destructive/20",
-  };
-}
-
-function ScoreBar({
-  label,
-  score,
-  colorClass,
-  trackClass,
-}: {
-  label: string;
-  score: number | undefined | null;
-  colorClass: string;
-  trackClass: string;
-}) {
-  if (score == null) return null;
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between items-center text-sm">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className={`font-bold tabular-nums text-sm ${colorClass}`}>
-          {score}
-          <span className="text-muted-foreground font-normal text-xs">
-            /100
-          </span>
-        </span>
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-700 ${trackClass}`}
-          style={{ width: `${score}%` }}
-        />
-      </div>
-    </div>
-  );
 }
 
 /* ======================= Insight Card ======================= */
@@ -301,6 +312,7 @@ export function Results({ id }: { id: number }) {
   const analyzeMutation = useAnalyzeIdea();
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [insightTab, setInsightTab] = useState<InsightTab>("strengths");
 
   const { data: publishStatus } = useQuery<{
     published: boolean;
@@ -432,15 +444,15 @@ export function Results({ id }: { id: number }) {
       {/* ---- Page Header ---- */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {idea.title}
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border uppercase tracking-wider">
-              {idea.domain}
+          {isAnalyzed && (
+            <span className="inline-block mb-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
+              Analysis Complete
             </span>
-          </div>
-          <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl">
+          )}
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            {idea.title}
+          </h1>
+          <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl mt-1">
             {idea.description}
           </p>
         </div>
@@ -475,6 +487,18 @@ export function Results({ id }: { id: number }) {
             >
               <Globe className="w-4 h-4" />
               {publishStatus?.published ? "Published" : "Publish"}
+            </Button>
+          )}
+
+          {isAnalyzed && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              data-testid="button-edit-idea"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit Idea
             </Button>
           )}
 
@@ -520,18 +544,11 @@ export function Results({ id }: { id: number }) {
               </div>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-foreground">
-                Engine is processing...
-              </h3>
-              <p className="text-muted-foreground text-sm mt-1">
-                Scanning market, crawling repos, evaluating feasibility.
-              </p>
+              <h3 className="text-lg font-bold text-foreground">Engine is processing...</h3>
+              <p className="text-muted-foreground text-sm mt-1">Scanning market, crawling repos, evaluating feasibility.</p>
             </div>
             <div className="w-full max-w-sm space-y-1.5">
-              <Progress
-                value={idea.status === "processing" ? 66 : 33}
-                className="h-1.5"
-              />
+              <Progress value={idea.status === "processing" ? 66 : 33} className="h-1.5" />
               <p className="text-xs text-muted-foreground text-right">
                 {idea.status === "processing" ? "66%" : "33%"} complete
               </p>
@@ -545,18 +562,9 @@ export function Results({ id }: { id: number }) {
         <Card className="border-destructive/20 bg-destructive/5">
           <CardContent className="pt-8 flex flex-col items-center text-center space-y-3">
             <AlertTriangle className="w-10 h-10 text-destructive" />
-            <h3 className="text-lg font-bold text-foreground">
-              Analysis Failed
-            </h3>
-            <p className="text-muted-foreground text-sm">
-              The engine encountered an error processing this request.
-            </p>
-            <Button
-              onClick={handleReanalyze}
-              className="mt-2"
-              variant="destructive"
-              size="sm"
-            >
+            <h3 className="text-lg font-bold text-foreground">Analysis Failed</h3>
+            <p className="text-muted-foreground text-sm">The engine encountered an error processing this request.</p>
+            <Button onClick={handleReanalyze} className="mt-2" variant="destructive" size="sm">
               Try Again
             </Button>
           </CardContent>
@@ -566,193 +574,181 @@ export function Results({ id }: { id: number }) {
       {/* ---- Analyzed Results ---- */}
       {isAnalyzed && a && (
         <div className="space-y-6 animate-in slide-in-from-bottom-6 duration-500 fade-in">
-          {/* Top section: Score + Verdict */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Score Card */}
-            <Card className="lg:col-span-1 bg-card border-border shadow-sm overflow-hidden">
-              <div className="h-0.5 w-full bg-primary" />
-              <CardHeader className="pb-2 pt-5">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Overall Verdict
-                </p>
-                <div className="flex items-end gap-1.5 mt-3">
-                  <span
-                    className={`text-7xl font-black tabular-nums leading-none ${scoreColor(a.overallScore || 0)}`}
-                  >
-                    {a.overallScore}
-                  </span>
-                  <span className="text-xl text-muted-foreground mb-2">
-                    /100
-                  </span>
-                </div>
-                {/* Label badge */}
-                {(() => {
-                  const sl = scoreLabel(a.overallScore || 0);
-                  return (
-                    <span
-                      className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${sl.bg} ${sl.color}`}
-                    >
-                      {sl.label}
-                    </span>
-                  );
-                })()}
-              </CardHeader>
-              <CardContent className="space-y-4 pt-4">
-                <ScoreBar
-                  label="Feasibility"
-                  score={a.feasibilityScore}
-                  colorClass="text-emerald-500"
-                  trackClass="bg-emerald-500"
-                />
-                <ScoreBar
-                  label="Uniqueness"
-                  score={a.uniquenessScore}
-                  colorClass="text-primary"
-                  trackClass="bg-primary"
-                />
-                <ScoreBar
-                  label="Impact"
-                  score={a.impactScore}
-                  colorClass="text-amber-500"
-                  trackClass="bg-amber-500"
-                />
-                <ScoreBar
-                  label="Innovation"
-                  score={a.innovationScore}
-                  colorClass="text-purple-500"
-                  trackClass="bg-purple-500"
-                />
-              </CardContent>
-            </Card>
 
-            {/* Verdict + Tech Stack */}
-            <Card className="lg:col-span-2 bg-card border-border shadow-sm flex flex-col">
-              <CardHeader className="border-b border-border pb-4">
-                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                  <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Terminal className="w-3.5 h-3.5 text-primary" />
-                  </div>
-                  Engine Verdict
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col justify-between pt-5">
-                <p className="text-base leading-relaxed text-foreground font-medium">
-                  {a.verdictSummary}
-                </p>
-
-                {a.techStack && a.techStack.length > 0 && (
-                  <div className="mt-6 pt-5 border-t border-border">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <Code2 className="w-3.5 h-3.5" />
-                      Recommended Stack
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {a.techStack.map((tech: string, i: number) => (
-                        <span
-                          key={i}
-                          className="px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border hover:text-foreground transition-colors"
-                        >
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* ---- AI Pivot Suggestions (shown when scores are low) ---- */}
+          {/* ---- AI Pivot Suggestions ---- */}
           <PivotSuggestionsPanel
             ideaId={id}
             feasibilityScore={a.feasibilityScore}
             uniquenessScore={a.uniquenessScore}
           />
 
-          {/* Deep Insights Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <InsightCard
-              items={a.strengths}
-              icon={TrendingUp}
-              title="Strengths"
-              accentClass="pi-insight-card-strength"
-              iconColorClass="text-emerald-500"
-              iconBgClass="bg-emerald-500/10"
-            />
-            <InsightCard
-              items={a.weaknesses}
-              icon={AlertTriangle}
-              title="Weaknesses"
-              accentClass="pi-insight-card-weakness"
-              iconColorClass="text-amber-500"
-              iconBgClass="bg-amber-500/10"
-            />
-            <InsightCard
-              items={a.risks}
-              icon={ShieldAlert}
-              title="Market Risks"
-              accentClass="pi-insight-card-risk"
-              iconColorClass="text-destructive"
-              iconBgClass="bg-destructive/10"
-            />
-            <InsightCard
-              items={a.suggestions}
-              icon={Lightbulb}
-              title="Strategic Pivots"
-              accentClass="pi-insight-card-pivot"
-              iconColorClass="text-primary"
-              iconBgClass="bg-primary/10"
-            />
-          </div>
+          {/* ---- 2-Panel: Radar + Competitive Repos ---- */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Market Viability (Radar) */}
+            <Card className="bg-card border-border shadow-sm">
+              <CardHeader className="border-b border-border pb-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  Market Viability
+                  <button className="ml-auto w-5 h-5 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground">
+                    <span className="text-[10px] font-bold leading-none">i</span>
+                  </button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-5 flex flex-col items-center gap-5">
+                <div className="text-foreground">
+                  <RadarChart
+                    scores={[
+                      { label: "Innovation", value: a.innovationScore ?? 0 },
+                      { label: "Impact", value: a.impactScore ?? 0 },
+                      { label: "Feasibility", value: a.feasibilityScore ?? 0 },
+                      { label: "Uniqueness", value: a.uniquenessScore ?? 0 },
+                    ]}
+                  />
+                </div>
+                {/* Score boxes below radar */}
+                <div className="grid grid-cols-2 gap-3 w-full">
+                  <div className="rounded-lg bg-muted/50 border border-border p-3">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Overall Score</p>
+                    <p className={`text-2xl font-black tabular-nums mt-0.5 ${scoreColor(a.overallScore ?? 0)}`}>
+                      {((a.overallScore ?? 0) / 10).toFixed(1)}<span className="text-sm font-normal text-muted-foreground">/10</span>
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 border border-border p-3">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Confidence</p>
+                    <p className={`text-2xl font-black mt-0.5 ${(a.overallScore ?? 0) >= 70 ? "text-emerald-500" : (a.overallScore ?? 0) >= 50 ? "text-amber-500" : "text-destructive"}`}>
+                      {(a.overallScore ?? 0) >= 70 ? "High" : (a.overallScore ?? 0) >= 50 ? "Medium" : "Low"}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* GitHub / Prior Art */}
-          {a.githubRepos && a.githubRepos.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold flex items-center gap-2">
-                <Github className="w-4 h-4" />
-                Relevant Prior Art (GitHub)
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {a.githubRepos.map((repo: any, i: number) => (
-                  <Card
-                    key={i}
-                    className="bg-card border-border pi-card-hover hover:border-primary/30"
-                  >
-                    <CardHeader className="pb-2 pt-4">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="min-w-0">
-                          <a
-                            href={repo.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-sm font-semibold hover:underline hover:text-primary truncate block"
-                          >
-                            {repo.org}/{repo.name}
-                          </a>
-                        </div>
-                        <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground shrink-0 bg-muted border border-border rounded-full px-2 py-0.5">
+            {/* Competitive Repositories */}
+            <Card className="bg-card border-border shadow-sm">
+              <CardHeader className="border-b border-border pb-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-muted-foreground" />
+                  Competitive Repositories
+                  {a.githubRepos && a.githubRepos.length > 0 && (
+                    <a href="#" className="ml-auto text-xs font-medium text-primary hover:underline flex items-center gap-1">
+                      View All <ArrowRight className="w-3 h-3" />
+                    </a>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-3">
+                {a.githubRepos && a.githubRepos.length > 0 ? (
+                  a.githubRepos.slice(0, 3).map((repo: any, i: number) => (
+                    <div key={i} className="rounded-lg border border-border bg-muted/30 p-3 hover:border-primary/30 transition-colors">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <a
+                          href={repo.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-semibold text-primary hover:underline truncate"
+                        >
+                          {repo.org}/{repo.name}
+                        </a>
+                        <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground shrink-0">
                           <Star className="w-3 h-3" />
-                          {repo.stars >= 1000
-                            ? (repo.stars / 1000).toFixed(1) + "k"
-                            : repo.stars}
+                          {repo.stars >= 1000 ? (repo.stars / 1000).toFixed(1) + "k" : repo.stars}
                         </span>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pb-4">
-                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2">
-                        {repo.desc}
-                      </p>
-                      <span className="text-[11px] font-medium text-primary/70 bg-primary/5 rounded-full px-2 py-0.5">
-                        {repo.lang}
-                      </span>
-                    </CardContent>
-                  </Card>
-                ))}
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-1.5">{repo.desc}</p>
+                      <div className="flex gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-medium text-primary/70 bg-primary/5 rounded-full px-2 py-0.5">{repo.lang}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No competitive repositories found.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ---- Insights Tabs ---- */}
+          <Card className="bg-card border-border shadow-sm overflow-hidden">
+            {/* Tab Bar */}
+            <div className="flex border-b border-border overflow-x-auto">
+              {([
+                { key: "strengths" as InsightTab, label: "Strengths", icon: CheckCircle2, color: "text-emerald-500", activeColor: "border-emerald-500" },
+                { key: "weaknesses" as InsightTab, label: "Weaknesses", icon: AlertTriangle, color: "text-amber-500", activeColor: "border-amber-500" },
+                { key: "risks" as InsightTab, label: "Risks", icon: XCircle, color: "text-destructive", activeColor: "border-destructive" },
+                { key: "suggestions" as InsightTab, label: "Suggestions", icon: Lightbulb, color: "text-primary", activeColor: "border-primary" },
+                { key: "techStack" as InsightTab, label: "Tech Stack", icon: Code2, color: "text-purple-500", activeColor: "border-purple-500" },
+              ]).map(({ key, label, icon: Icon, color, activeColor }) => (
+                <button
+                  key={key}
+                  onClick={() => setInsightTab(key)}
+                  className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+                    insightTab === key
+                      ? `${color} ${activeColor} bg-muted/30`
+                      : "text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/20"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-5">
+              <div className="lg:col-span-3 p-5 space-y-3">
+                {insightTab !== "techStack" && (() => {
+                  const items: any[] = insightTab === "strengths" ? (a.strengths ?? []) : insightTab === "weaknesses" ? (a.weaknesses ?? []) : insightTab === "risks" ? (a.risks ?? []) : (a.suggestions ?? []);
+                  const IconMap = { strengths: CheckCircle2, weaknesses: AlertTriangle, risks: XCircle, suggestions: Lightbulb };
+                  const Icon = IconMap[insightTab as keyof typeof IconMap];
+                  const colorMap: Record<string, string> = { strengths: "text-emerald-500", weaknesses: "text-amber-500", risks: "text-destructive", suggestions: "text-primary" };
+                  return items.length > 0 ? items.map((item: any, i: number) => (
+                    <div key={i} className="flex gap-3">
+                      <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                        <Icon className={`w-3 h-3 ${colorMap[insightTab]}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{item.desc}</p>
+                      </div>
+                    </div>
+                  )) : <p className="text-sm text-muted-foreground">No items available.</p>;
+                })()}
+
+                {insightTab === "techStack" && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {a.techStack && a.techStack.length > 0 ? (
+                      a.techStack.map((tech: string, i: number) => (
+                        <span key={i} className="px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-foreground border border-border">
+                          {tech}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No tech stack recommendations available.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Right decorative panel */}
+              <div
+                className="lg:col-span-2 hidden lg:flex items-end p-5 min-h-[200px]"
+                style={{
+                  background: "linear-gradient(135deg, rgba(79,70,229,0.15) 0%, rgba(99,102,241,0.25) 100%)",
+                  borderLeft: "1px solid hsl(var(--border))",
+                }}
+              >
+                <div>
+                  <p className="text-sm font-bold text-foreground leading-snug">
+                    {a.verdictSummary
+                      ? a.verdictSummary.slice(0, 100) + (a.verdictSummary.length > 100 ? "..." : "")
+                      : "AI engine verdict based on multi-dimensional market analysis."}
+                  </p>
+                </div>
               </div>
             </div>
-          )}
+          </Card>
 
-          {/* Market Context */}
+          {/* ---- Market Context ---- */}
           {a.marketContext && (
             <Card className="bg-card border-border">
               <CardHeader className="border-b border-border pb-4">
@@ -764,12 +760,29 @@ export function Results({ id }: { id: number }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-5">
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {a.marketContext}
-                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{a.marketContext}</p>
               </CardContent>
             </Card>
           )}
+
+          {/* ---- Bottom Action Bar ---- */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Link href="/compare" className="flex-1">
+              <Button variant="outline" className="w-full gap-2">
+                Compare with Previous Version
+              </Button>
+            </Link>
+            <Button
+              className="flex-1 gap-2"
+              onClick={handleReanalyze}
+              disabled={analyzeMutation.isPending}
+              style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+            >
+              <Sparkles className="w-4 h-4" />
+              Improve Idea with AI
+            </Button>
+          </div>
+
         </div>
       )}
     </div>
