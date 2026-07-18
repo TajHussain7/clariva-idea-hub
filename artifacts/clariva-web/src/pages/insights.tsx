@@ -399,149 +399,95 @@ export function Insights() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* ---- Page Header ---- */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            AI Recommendations
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Real-time strategic insights based on your recent activity and
-            market trends.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            className="gap-2"
+      {/* ---- Priority Spotlight (3-Column Grid) ---- */}
+      {activeFilter === "all" && priorityInsight && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Column 1: Impact Score visual box (Left, 1.5/5 width span) */}
+          <div
+            className="lg:col-span-2 rounded-2xl p-6 text-white flex flex-col justify-between relative overflow-hidden min-h-[240px]"
+            style={{
+              background: "linear-gradient(135deg, #0d0c22 0%, #1e1b4b 100%)",
+            }}
           >
-            <RefreshCw
-              className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
-          <Button size="sm" className="gap-2">
-            <Bell className="w-4 h-4" />
-            Configure Alerts
-          </Button>
-        </div>
-      </div>
-
-      {/* ---- Filter Tabs ---- */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {filterTabs.map((tab) => {
-          const isActive = activeFilter === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveFilter(tab.key)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-150 border ${
-                isActive
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
-              }`}
-              data-testid={`filter-${tab.key}`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ---- Priority + Risk spotlight ---- */}
-      {(showPriority || showRisk) && (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          {showPriority && priorityInsight && (
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                ★ Priority
+              </span>
+            </div>
+            <div className="relative z-10 mt-auto">
+              <p className="text-xs text-white/50 uppercase tracking-wider">Impact Score</p>
+              <p className="text-5xl font-black tracking-tight leading-none mt-1">
+                {priorityInsight.impactScore}<span className="text-lg font-normal text-white/40">/100</span>
+              </p>
+            </div>
+            {/* Visual background element */}
             <div
-              className="lg:col-span-3 rounded-2xl p-6 text-white relative overflow-hidden flex flex-col justify-between min-h-[220px]"
+              className="absolute inset-0 opacity-20 pointer-events-none"
               style={{
-                background: "linear-gradient(135deg, #4338ca 0%, #6d28d9 100%)",
+                backgroundImage: "radial-gradient(circle at 70% 30%, #4338ca 0%, transparent 60%)",
               }}
-            >
-              <div>
-                <Badge className="bg-white/15 border-white/20 text-white gap-1 mb-3">
-                  <Sparkles className="w-3 h-3" />
-                  Priority Recommendation
-                </Badge>
-                <h3 className="text-lg font-bold mb-2">
-                  {priorityInsight.title}
-                </h3>
-                <p className="text-sm text-white/80 leading-relaxed max-w-xl">
-                  {priorityInsight.body}
-                </p>
-              </div>
-              <div className="flex items-end justify-between mt-6 gap-4 flex-wrap">
-                <div className="flex items-center gap-4 flex-wrap">
-                  <Link href={`/ideas/${priorityInsight.ideaId}`} asChild>
-                    <Button
-                      size="sm"
-                      className="bg-white text-indigo-700 hover:bg-white/90 gap-1.5 cursor-pointer"
-                    >
-                      Execute Strategy
-                    </Button>
-                  </Link>
-                  <Link
-                    href={`/ideas/${priorityInsight.ideaId}`}
-                    className="text-sm font-medium text-white/90 hover:text-white flex items-center gap-1"
-                  >
-                    View Detailed Report
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[10px] text-white/60 uppercase tracking-wider">
-                    Idea Overall Score
-                  </p>
-                  <p className="text-2xl font-black tabular-nums leading-tight">
-                    {priorityInsight.impactScore}/100
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+            />
+          </div>
 
-          {showRisk && riskInsight && (
-            <div className="lg:col-span-2 rounded-2xl p-6 bg-card border border-border flex flex-col justify-between min-h-[220px]">
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <Badge variant="destructive" className="gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    Risk Alert
-                  </Badge>
-                  <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <h3 className="text-base font-bold mb-2">
-                  {riskInsight.title}
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {riskInsight.desc}
-                </p>
-              </div>
-              <div className="mt-4">
-                <div className="flex items-center justify-between rounded-lg bg-red-500/5 border border-red-500/20 px-3 py-2 mb-3">
-                  <span className="text-xs text-muted-foreground">
-                    Idea: {riskInsight.ideaTitle}
-                  </span>
-                  <span className="text-sm font-bold text-red-500">
-                    Score: {riskInsight.overallScore}/100
-                  </span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-4">
-                  <div
-                    className="h-full rounded-full bg-red-500"
-                    style={{ width: `${riskInsight.overallScore}%` }}
-                  />
-                </div>
-                <Link href={`/ideas/${riskInsight.ideaId}`} asChild>
-                  <Button variant="outline" size="sm" className="w-full cursor-pointer">
-                    Mitigate Risks
-                  </Button>
-                </Link>
-              </div>
+          {/* Column 2: Opportunity strategy details (Center, 2/5 width span) */}
+          <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 flex flex-col justify-between min-h-[240px]">
+            <div>
+              <span className="inline-block mb-3 text-[10px] font-bold uppercase tracking-widest text-cyan-600 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                Opportunity
+              </span>
+              <h3 className="text-base font-bold text-foreground mb-2">
+                {priorityInsight.title}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {priorityInsight.body}
+              </p>
             </div>
-          )}
+            <div className="flex items-center gap-4 mt-6">
+              <Link href={`/ideas/${priorityInsight.ideaId}`} asChild>
+                <Button size="sm" className="bg-primary hover:bg-primary/95 text-white">
+                  Execute Strategy
+                </Button>
+              </Link>
+              <Link
+                href={`/ideas/${priorityInsight.ideaId}`}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                View Detailed Report
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Column 3: Risk Alert (Right, 1.5/5 width span) */}
+          <div className="lg:col-span-1 bg-card border border-border rounded-2xl p-6 flex flex-col justify-between min-h-[240px]">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-red-600 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                  Risk
+                </span>
+                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <h3 className="text-sm font-bold text-foreground mb-1.5 line-clamp-1">
+                Churn Prediction Alert
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                {riskInsight?.desc || "Enterprise segments are indicating potential churn indicators."}
+              </p>
+            </div>
+            <div className="mt-4">
+              <div className="rounded-lg bg-muted/40 border border-border px-3 py-2 flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Affected ARR</span>
+                <span className="text-xs font-bold text-red-500 font-mono">-$142,000</span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mb-3">
+                <div className="h-full bg-red-500 rounded-full" style={{ width: "70%" }} />
+              </div>
+              <Button variant="outline" size="sm" className="w-full text-xs">
+                Start Outreach
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

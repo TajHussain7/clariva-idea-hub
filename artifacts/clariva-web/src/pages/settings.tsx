@@ -337,6 +337,13 @@ export function Settings() {
     const nextTheme = currentTheme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
 
+    if (user) {
+      queryClient.setQueryData(getGetMeQueryKey(), {
+        ...user,
+        theme: nextTheme,
+      });
+    }
+
     updateMeMutation.mutate(
       { data: { theme: nextTheme } },
       {
@@ -345,6 +352,9 @@ export function Settings() {
         },
         onError: (error) => {
           setTheme(currentTheme);
+          if (user) {
+            queryClient.setQueryData(getGetMeQueryKey(), user);
+          }
           toast({
             variant: "destructive",
             title: "Theme update failed",
@@ -473,312 +483,260 @@ export function Settings() {
   const isDeleteSaving = deleteMeMutation.isPending;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl pb-10">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl pb-24">
+      {/* Page Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight">Account Settings</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage your profile, preferences, and account security.
+          Manage your profile information, security preferences, and interface theme.
         </p>
       </div>
 
-      <Card className="bg-card border-border shadow-sm">
-        <CardHeader className="border-b border-border pb-5">
-          <SectionHeader
-            icon={User}
-            title="Profile"
-            description="Update the profile details shown across the app."
-          />
-        </CardHeader>
-        <CardContent className="pt-6 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="relative shrink-0">
-              <Avatar className="h-16 w-16 ring-2 ring-primary/15">
-                <AvatarImage
-                  src={avatarUrl || undefined}
-                  alt={user?.name || "User avatar"}
-                />
-                <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
+      {/* ---- Row 1: Profile Info + Theme ---- */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+        {/* Profile Info (left, wider) */}
+        <Card className="lg:col-span-3 bg-card border-border shadow-sm">
+          <CardHeader className="border-b border-border pb-4">
+            <div className="flex items-center justify-between">
+              <SectionHeader
+                icon={User}
+                title="Profile Info"
+                description="Update the profile details shown across the app."
+              />
               <button
                 type="button"
-                onClick={() => avatarInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:bg-primary/90 transition-colors"
-                title="Upload a new photo"
-                aria-label="Upload a new photo"
+                onClick={handleProfileSave}
+                className="text-xs font-semibold text-primary hover:underline"
               >
-                <Upload className="w-3 h-3" />
+                Edit Profile
               </button>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={handleAvatarFileChange}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-5 space-y-4">
+            {/* Avatar row */}
+            <div className="flex items-center gap-4">
+              <div className="relative shrink-0">
+                <Avatar className="h-14 w-14 ring-2 ring-primary/15">
+                  <AvatarImage src={avatarUrl || undefined} alt={user?.name || "User avatar"} />
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:bg-primary/90 transition-colors"
+                  title="Upload a new photo"
+                >
+                  <Upload className="w-2.5 h-2.5" />
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleAvatarFileChange}
+                />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{user?.name || "Your profile"}</p>
+                <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
+                {avatarError && <p className="text-xs text-destructive mt-0.5">{avatarError}</p>}
+              </div>
+            </div>
+
+            <form onSubmit={handleProfileSave} className="space-y-4">
+              {/* First Name + Last Name side-by-side (use full name field split visually) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Display Name
+                </label>
+                <Input
+                  {...profileForm.register("name")}
+                  placeholder="Your name"
+                  className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                />
+                {profileForm.formState.errors.name && (
+                  <p className="text-xs text-destructive">{profileForm.formState.errors.name.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Email Address
+                </label>
+                <Input
+                  value={user?.email || ""}
+                  readOnly
+                  className="h-10 bg-muted/50 border-border text-muted-foreground cursor-not-allowed"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Biography
+                </label>
+                <textarea
+                  {...profileForm.register("bio")}
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  placeholder="Tell us about yourself..."
+                />
+                {profileForm.formState.errors.bio && (
+                  <p className="text-xs text-destructive">{profileForm.formState.errors.bio.message}</p>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Theme (right, narrower) */}
+        <Card className="lg:col-span-2 bg-card border-border shadow-sm">
+          <CardHeader className="border-b border-border pb-4">
+            <SectionHeader
+              icon={Globe}
+              title="Theme"
+              description="Choose between a light focused environment or a high-contrast dark mode."
+            />
+          </CardHeader>
+          <CardContent className="pt-5 space-y-5">
+            {/* Theme box selectors */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => theme !== "light" && handleThemeToggle()}
+                disabled={isThemeSaving}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                  theme === "light"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <Sun className={`w-6 h-6 ${theme === "light" ? "text-primary" : "text-muted-foreground"}`} />
+                <span className={`text-sm font-semibold ${theme === "light" ? "text-primary" : "text-muted-foreground"}`}>
+                  Light
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => theme !== "dark" && handleThemeToggle()}
+                disabled={isThemeSaving}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                  theme === "dark"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                }`}
+              >
+                <Moon className={`w-6 h-6 ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`} />
+                <span className={`text-sm font-semibold ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`}>
+                  Dark
+                </span>
+              </button>
+            </div>
+
+            {/* Language */}
+            <div className="pt-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
+                Language
+              </label>
+              <select
+                value={language}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {languageOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Notifications */}
+            <div className="border-t border-border pt-4 space-y-1">
+              <ToggleSwitch
+                checked={notifications.weeklyDigest}
+                onChange={(v) => handleToggleNotification("weeklyDigest", v)}
+                label="Weekly Digest Email"
+                description="A curated summary of all AI insights, every Monday."
+                disabled={updateMeMutation.isPending}
+              />
+              <ToggleSwitch
+                checked={notifications.analysisComplete}
+                onChange={(v) => handleToggleNotification("analysisComplete", v)}
+                label="Analysis Complete"
+                description="Notify when an idea finishes AI analysis."
+                disabled={updateMeMutation.isPending}
               />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {user?.name || "Your profile"}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user?.email || "Signed-in account email"}
-                </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ---- Row 2: Change Password (full width) ---- */}
+      <Card className="bg-card border-border shadow-sm mb-6">
+        <CardHeader className="border-b border-border pb-4">
+          <SectionHeader
+            icon={Lock}
+            title="Change Password"
+            description="Update your credentials. You'll need your current password."
+          />
+        </CardHeader>
+        <CardContent className="pt-5">
+          <form onSubmit={handlePasswordChange}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Current Password
+                </label>
+                <PasswordInput
+                  visible={showCurrentPassword}
+                  onToggleVisible={() => setShowCurrentPassword((p) => !p)}
+                  {...passwordForm.register("currentPassword")}
+                  className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                />
+                {passwordForm.formState.errors.currentPassword && (
+                  <p className="text-xs text-destructive">{passwordForm.formState.errors.currentPassword.message}</p>
+                )}
               </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  New Password
+                </label>
+                <PasswordInput
+                  visible={showNewPassword}
+                  onToggleVisible={() => setShowNewPassword((p) => !p)}
+                  {...passwordForm.register("newPassword")}
+                  className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                />
+                {passwordForm.formState.errors.newPassword && (
+                  <p className="text-xs text-destructive">{passwordForm.formState.errors.newPassword.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Confirm New Password
+                </label>
+                <PasswordInput
+                  visible={showConfirmPassword}
+                  onToggleVisible={() => setShowConfirmPassword((p) => !p)}
+                  {...passwordForm.register("confirmPassword")}
+                  className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
+                />
+                {passwordForm.formState.errors.confirmPassword && (
+                  <p className="text-xs text-destructive">{passwordForm.formState.errors.confirmPassword.message}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-border">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="mt-2 gap-2"
-                onClick={() => avatarInputRef.current?.click()}
+                onClick={() => passwordForm.reset()}
               >
-                <Upload className="w-3.5 h-3.5" />
-                Change Photo
+                Discard
               </Button>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                PNG, JPG, WEBP, or GIF. 3MB max.
-              </p>
-              {avatarError && (
-                <p className="text-xs text-destructive mt-1">{avatarError}</p>
-              )}
-            </div>
-          </div>
-
-          <form onSubmit={handleProfileSave} className="space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Display Name
-              </label>
-              <Input
-                {...profileForm.register("name")}
-                placeholder="Your name"
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              {profileForm.formState.errors.name && (
-                <p className="text-xs text-destructive">
-                  {profileForm.formState.errors.name.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Email Address
-              </label>
-              <Input
-                value={user?.email || ""}
-                readOnly
-                className="h-10 bg-muted/50 border-border text-muted-foreground cursor-not-allowed"
-              />
-              <p className="text-xs text-muted-foreground">
-                Email changes are not supported from Settings.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Phone Number
-              </label>
-              <Input
-                {...profileForm.register("phone")}
-                placeholder="(555) 123-4567"
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              {profileForm.formState.errors.phone && (
-                <p className="text-xs text-destructive">
-                  {profileForm.formState.errors.phone.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Bio
-              </label>
-              <textarea
-                {...profileForm.register("bio")}
-                rows={3}
-                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                placeholder="Tell us about yourself..."
-              />
-              {profileForm.formState.errors.bio && (
-                <p className="text-xs text-destructive">
-                  {profileForm.formState.errors.bio.message}
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                size="sm"
-                className="gap-2"
-                type="submit"
-                disabled={isProfileSaving}
-              >
-                {isProfileSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                Save Profile
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-card border-border shadow-sm">
-        <CardHeader className="border-b border-border pb-5">
-          <SectionHeader
-            icon={Globe}
-            title="Preferences"
-            description="Control appearance and notification behavior."
-          />
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="flex items-center justify-between gap-4 py-3 border-b border-border">
-            <div>
-              <p className="text-sm font-medium text-foreground">Theme</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Switch between light and dark mode.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleThemeToggle}
-              disabled={isThemeSaving}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted text-sm font-medium hover:bg-muted/70 transition-colors disabled:opacity-60"
-            >
-              {theme === "dark" ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-amber-400" />
-                  Light Mode
-                </>
-              ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 text-primary" />
-                  Dark Mode
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 py-3 border-b border-border">
-            <div>
-              <p className="text-sm font-medium text-foreground">Language</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Store your preferred interface language.
-              </p>
-            </div>
-            <select
-              value={language}
-              onChange={(event) => handleLanguageChange(event.target.value)}
-              className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              {languageOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <ToggleSwitch
-            checked={notifications.weeklyDigest}
-            onChange={(value) =>
-              handleToggleNotification("weeklyDigest", value)
-            }
-            label="Weekly Digest Email"
-            description="A curated summary of all AI insights, every Monday."
-            disabled={updateMeMutation.isPending}
-          />
-          <ToggleSwitch
-            checked={notifications.analysisComplete}
-            onChange={(value) =>
-              handleToggleNotification("analysisComplete", value)
-            }
-            label="Analysis Complete"
-            description="Notify when an idea finishes AI analysis."
-            disabled={updateMeMutation.isPending}
-          />
-        </CardContent>
-      </Card>
-
-      <Card className="bg-card border-border shadow-sm">
-        <CardHeader className="border-b border-border pb-5">
-          <SectionHeader
-            icon={Lock}
-            title="Security"
-            description="Change your password with your current session."
-          />
-        </CardHeader>
-        <CardContent className="pt-6">
-          <form onSubmit={handlePasswordChange} className="space-y-4 max-w-xl">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Current Password
-              </label>
-              <PasswordInput
-                visible={showCurrentPassword}
-                onToggleVisible={() => setShowCurrentPassword((prev) => !prev)}
-                {...passwordForm.register("currentPassword")}
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              {passwordForm.formState.errors.currentPassword && (
-                <p className="text-xs text-destructive">
-                  {passwordForm.formState.errors.currentPassword.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                New Password
-              </label>
-              <PasswordInput
-                visible={showNewPassword}
-                onToggleVisible={() => setShowNewPassword((prev) => !prev)}
-                {...passwordForm.register("newPassword")}
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              {passwordForm.formState.errors.newPassword && (
-                <p className="text-xs text-destructive">
-                  {passwordForm.formState.errors.newPassword.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Confirm New Password
-              </label>
-              <PasswordInput
-                visible={showConfirmPassword}
-                onToggleVisible={() => setShowConfirmPassword((prev) => !prev)}
-                {...passwordForm.register("confirmPassword")}
-                className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
-              />
-              {passwordForm.formState.errors.confirmPassword && (
-                <p className="text-xs text-destructive">
-                  {passwordForm.formState.errors.confirmPassword.message}
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                size="sm"
-                className="gap-2"
-                type="submit"
-                disabled={isPasswordSaving}
-              >
-                {isPasswordSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Shield className="w-4 h-4" />
-                )}
+              <Button size="sm" type="submit" className="gap-2" disabled={isPasswordSaving}>
+                {isPasswordSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
                 Update Password
               </Button>
             </div>
@@ -786,57 +744,85 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      <Card className="bg-card border-destructive/20 shadow-sm">
-        <CardHeader className="border-b border-border pb-5">
-          <SectionHeader
-            icon={Trash2}
-            title="Danger Zone"
-            description="Irreversible action. Confirm carefully before deleting your account."
-          />
-        </CardHeader>
-        <CardContent className="pt-6">
-          <form onSubmit={handleDeleteAccount} className="space-y-4 max-w-xl">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Current Password
-              </label>
+      {/* ---- Row 3: Danger Zone + 2FA ---- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Danger Zone */}
+        <Card className="border-destructive/40 bg-destructive/5 shadow-sm">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              <h3 className="text-base font-bold text-destructive">Danger Zone</h3>
+            </div>
+            <p className="text-sm text-destructive/80 mb-1">
+              Once you delete your account, there is no going back. Please be certain.
+            </p>
+            <form onSubmit={handleDeleteAccount} className="mt-4 space-y-3">
               <PasswordInput
                 visible={showDeletePassword}
-                onToggleVisible={() => setShowDeletePassword((prev) => !prev)}
+                onToggleVisible={() => setShowDeletePassword((p) => !p)}
                 {...deleteForm.register("currentPassword")}
-                className="h-10 bg-background border-border focus-visible:ring-destructive/30 focus-visible:border-destructive"
+                placeholder="Confirm your password"
+                className="h-10 bg-background border-destructive/30 focus-visible:ring-destructive/30 focus-visible:border-destructive"
               />
               {deleteForm.formState.errors.currentPassword && (
-                <p className="text-xs text-destructive">
-                  {deleteForm.formState.errors.currentPassword.message}
-                </p>
+                <p className="text-xs text-destructive">{deleteForm.formState.errors.currentPassword.message}</p>
               )}
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              This permanently deletes your account, ideas, analyses, and
-              related content.
-            </p>
-
-            <div className="flex justify-end pt-2">
               <Button
                 variant="destructive"
                 size="sm"
-                className="gap-2"
                 type="submit"
+                className="gap-2"
                 disabled={isDeleteSaving}
               >
-                {isDeleteSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4" />
-                )}
+                {isDeleteSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 Delete Account
               </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Two-Factor Authentication */}
+        <Card className="bg-card border-border shadow-sm">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Shield className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold">Two-Factor Authentication</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Add an extra layer of security to your account.
+                  </p>
+                </div>
+              </div>
+              {/* 2FA toggle — visual only, no backend yet */}
+              <button
+                type="button"
+                className="relative w-11 h-6 rounded-full bg-primary shrink-0 mt-1"
+                title="Two-factor authentication (coming soon)"
+              >
+                <span
+                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200"
+                />
+              </button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ---- Floating Save All Changes button ---- */}
+      <div className="fixed bottom-6 right-8 z-50">
+        <Button
+          size="sm"
+          className="gap-2 shadow-lg px-5 py-2.5 text-sm"
+          onClick={handleProfileSave}
+          disabled={isProfileSaving}
+        >
+          {isProfileSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Save All Changes
+        </Button>
+      </div>
     </div>
   );
 }
