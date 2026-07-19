@@ -7,13 +7,10 @@ import {
   Lightbulb,
   ArrowUpRight,
   RefreshCw,
-  Bell,
   BarChart2,
-  Cpu,
-  MoreHorizontal,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useListIdeas } from "@workspace/api-client-react";
 
@@ -36,26 +33,23 @@ interface SmallInsight {
 
 interface ProcessedData {
   smallInsights: SmallInsight[];
-  distribution: {
-    label: string;
-    value: number;
-    color: string;
-    dot: string;
-  }[];
+  distribution: { label: string; value: number; color: string; dot: string }[];
   priorityInsight: {
     title: string;
     body: string;
     impactScore: number;
     ideaId: number;
   } | null;
-  riskInsight: {
+  topRisk: {
     title: string;
     desc: string;
-    overallScore: number;
     ideaTitle: string;
     ideaId: number;
+    overallScore: number;
   } | null;
   confidenceData: number[];
+  avgScore: number;
+  totalIdeas: number;
   hasAnyAnalyzed: boolean;
   hasAnyProcessing: boolean;
 }
@@ -68,7 +62,7 @@ const filterTabs: { key: FilterTab; label: string }[] = [
 ];
 
 /* ======================= Time Ago Helper ======================= */
-function formatTimeAgo(dateStr: string) {
+function formatTimeAgo(dateStr: string | Date) {
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return "Unknown time";
   const now = new Date();
@@ -82,7 +76,7 @@ function formatTimeAgo(dateStr: string) {
   return `${diffDays}d ago`;
 }
 
-/* ======================= Small insight card ======================= */
+/* ======================= Small Insight Card ======================= */
 function SmallInsightCard({ insight }: { insight: SmallInsight }) {
   const Icon = insight.icon;
   return (
@@ -119,7 +113,7 @@ function SmallInsightCard({ insight }: { insight: SmallInsight }) {
   );
 }
 
-/* ======================= AI Insights Feed Page ======================= */
+/* ======================= AI Insights Page ======================= */
 export function Insights() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -133,48 +127,35 @@ export function Insights() {
   };
 
   const processedData = useMemo<ProcessedData>(() => {
-    if (!ideas) {
-      return {
-        smallInsights: [],
-        distribution: [],
-        priorityInsight: null,
-        riskInsight: null,
-        confidenceData: [70, 70, 70, 70, 70, 70],
-        hasAnyAnalyzed: false,
-        hasAnyProcessing: false,
-      };
-    }
+    const empty: ProcessedData = {
+      smallInsights: [],
+      distribution: [],
+      priorityInsight: null,
+      topRisk: null,
+      confidenceData: [],
+      avgScore: 0,
+      totalIdeas: 0,
+      hasAnyAnalyzed: false,
+      hasAnyProcessing: false,
+    };
+
+    if (!ideas) return empty;
 
     const analyzedIdeas = ideas.filter(
-      (idea) => idea.status === "analyzed" && idea.analysis
+      (idea) => idea.status === "analyzed" && idea.analysis,
     );
-
     const hasAnyProcessing = ideas.some(
-      (idea) => idea.status === "processing" || idea.status === "pending"
+      (idea) => idea.status === "processing" || idea.status === "pending",
     );
 
     if (analyzedIdeas.length === 0) {
-      return {
-        smallInsights: [],
-        distribution: [],
-        priorityInsight: null,
-        riskInsight: null,
-        confidenceData: [70, 70, 70, 70, 70, 70],
-        hasAnyAnalyzed: false,
-        hasAnyProcessing,
-      };
+      return { ...empty, hasAnyProcessing };
     }
 
     const list: SmallInsight[] = [];
     let maxOverallIdea = analyzedIdeas[0];
     let highestScore = analyzedIdeas[0].analysis?.overallScore ?? 0;
-    let riskToSpotlight: {
-      title: string;
-      desc: string;
-      overallScore: number;
-      ideaTitle: string;
-      ideaId: number;
-    } | null = null;
+    let topRisk: ProcessedData["topRisk"] = null;
 
     for (const idea of analyzedIdeas) {
       const analysis = idea.analysis!;
@@ -184,7 +165,6 @@ export function Insights() {
         maxOverallIdea = idea;
       }
 
-      // Aggregate strengths -> opportunities
       if (analysis.strengths) {
         analysis.strengths.forEach((item, index) => {
           list.push({
@@ -203,7 +183,6 @@ export function Insights() {
         });
       }
 
-      // Aggregate suggestions -> suggestions
       if (analysis.suggestions) {
         analysis.suggestions.forEach((item, index) => {
           list.push({
@@ -222,7 +201,6 @@ export function Insights() {
         });
       }
 
-      // Aggregate risks -> risks
       if (analysis.risks) {
         for (const [index, item] of analysis.risks.entries()) {
           list.push({
@@ -239,8 +217,8 @@ export function Insights() {
             cta: "View Idea Details",
           });
 
-          if (!riskToSpotlight) {
-            riskToSpotlight = {
+          if (!topRisk) {
+            topRisk = {
               title: item.title,
               desc: item.desc,
               overallScore: analysis.overallScore ?? 0,
@@ -252,20 +230,18 @@ export function Insights() {
       }
     }
 
-    // Priority Insight spotlight
     const priority = maxOverallIdea
       ? {
           title: maxOverallIdea.title,
           body:
-            maxOverallIdea.analysis?.verdictSummary ||
+            maxOverallIdea.analysis?.verdictSummary?.slice(0, 220) ||
             maxOverallIdea.description ||
-            "Highest-rated strategic concept based on overall feasibility, innovation, and impact.",
+            "Highest-rated concept based on overall feasibility, innovation, and impact.",
           impactScore: maxOverallIdea.analysis?.overallScore ?? 0,
           ideaId: maxOverallIdea.id,
         }
       : null;
 
-    // Distribution calculation
     const oppsCount = list.filter((i) => i.type === "opportunity").length;
     const sugCount = list.filter((i) => i.type === "suggestion").length;
     const risksCount = list.filter((i) => i.type === "risk").length;
@@ -277,7 +253,12 @@ export function Insights() {
         color: "bg-emerald-500",
         dot: "bg-emerald-500",
       },
-      { label: "Risks", value: risksCount, color: "bg-red-400", dot: "bg-red-400" },
+      {
+        label: "Risks",
+        value: risksCount,
+        color: "bg-red-400",
+        dot: "bg-red-400",
+      },
       {
         label: "Suggestions",
         value: sugCount,
@@ -286,20 +267,25 @@ export function Insights() {
       },
     ];
 
-    // Confidence chart: last 6 analyzed ideas overallScore (or default 70)
     const confData = analyzedIdeas
       .slice(-6)
-      .map((i) => i.analysis?.overallScore ?? 70);
-    while (confData.length < 6) {
-      confData.unshift(70);
-    }
+      .map((i) => i.analysis?.overallScore ?? 0);
+    while (confData.length < 6) confData.unshift(0);
+
+    const totalScore = analyzedIdeas.reduce(
+      (acc, i) => acc + (i.analysis?.overallScore ?? 0),
+      0,
+    );
+    const avgScore = Math.round(totalScore / analyzedIdeas.length);
 
     return {
       smallInsights: list,
       distribution: dist,
       priorityInsight: priority,
-      riskInsight: riskToSpotlight,
+      topRisk,
       confidenceData: confData,
+      avgScore,
+      totalIdeas: analyzedIdeas.length,
       hasAnyAnalyzed: true,
       hasAnyProcessing,
     };
@@ -309,8 +295,10 @@ export function Insights() {
     smallInsights,
     distribution,
     priorityInsight,
-    riskInsight,
+    topRisk,
     confidenceData,
+    avgScore,
+    totalIdeas,
     hasAnyAnalyzed,
     hasAnyProcessing,
   } = processedData;
@@ -319,18 +307,15 @@ export function Insights() {
     activeFilter === "all"
       ? smallInsights
       : smallInsights.filter((i) => {
-          const typeToTabMap: Record<SmallInsight["type"], FilterTab> = {
+          const map: Record<SmallInsight["type"], FilterTab> = {
             opportunity: "opportunities",
             risk: "risks",
             suggestion: "suggestions",
           };
-          return typeToTabMap[i.type] === activeFilter;
+          return map[i.type] === activeFilter;
         });
 
-  const showPriority =
-    activeFilter === "all" || activeFilter === "opportunities";
-  const showRisk = activeFilter === "all" || activeFilter === "risks";
-
+  /* ---- Loading ---- */
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -339,10 +324,7 @@ export function Insights() {
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-4 w-80" />
           </div>
-          <div className="flex gap-2">
-            <Skeleton className="h-9 w-24" />
-            <Skeleton className="h-9 w-32" />
-          </div>
+          <Skeleton className="h-9 w-28" />
         </div>
         <div className="flex gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -362,6 +344,7 @@ export function Insights() {
     );
   }
 
+  /* ---- Error ---- */
   if (isError) {
     return (
       <div className="text-center py-16 bg-card rounded-xl border border-border">
@@ -375,34 +358,105 @@ export function Insights() {
     );
   }
 
+  /* ---- Empty ---- */
   if (!hasAnyAnalyzed) {
     return (
-      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border space-y-4">
-        <Sparkles className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-        <h3 className="text-lg font-semibold">No AI Insights Available Yet</h3>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">
-          {hasAnyProcessing
-            ? "Your ideas are currently being analyzed by the AI engine. This usually takes less than a minute."
-            : "Clariva generates actionable recommendations, opportunity assessments, and risk reviews once you submit ideas for validation."}
-        </p>
-        {!hasAnyProcessing && (
-          <Link href="/submit" asChild>
-            <Button className="gap-2">
-              Submit Your First Idea
-              <ArrowUpRight className="w-4 h-4" />
-            </Button>
-          </Link>
-        )}
+      <div className="space-y-6">
+        {/* Page header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              AI Insights
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Aggregated signals across all your validated ideas.
+            </p>
+          </div>
+        </div>
+        <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border space-y-4">
+          <Sparkles className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+          <h3 className="text-lg font-semibold">
+            No AI Insights Available Yet
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            {hasAnyProcessing
+              ? "Your ideas are currently being analyzed by the AI engine. This usually takes less than a minute."
+              : "Clariva generates actionable recommendations, opportunity assessments, and risk reviews once you submit ideas for validation."}
+          </p>
+          {!hasAnyProcessing && (
+            <Link href="/submit" asChild>
+              <Button className="gap-2">
+                Submit Your First Idea
+                <ArrowUpRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* ---- Priority Spotlight (3-Column Grid) ---- */}
+      {/* ---- Page Header ---- */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            AI Insights
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Aggregated signals across{" "}
+            <span className="font-medium text-foreground">{totalIdeas}</span>{" "}
+            analyzed idea{totalIdeas !== 1 ? "s" : ""}.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="gap-2 shrink-0"
+        >
+          <RefreshCw
+            className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </Button>
+      </div>
+
+      {/* ---- Filter Tabs ---- */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {filterTabs.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setActiveFilter(key)}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+              activeFilter === key
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-foreground/20"
+            }`}
+          >
+            {label}
+            {key !== "all" && (
+              <span
+                className={`ml-1.5 text-[11px] font-semibold ${activeFilter === key ? "opacity-70" : "opacity-50"}`}
+              >
+                {key === "opportunities"
+                  ? smallInsights.filter((i) => i.type === "opportunity").length
+                  : key === "risks"
+                    ? smallInsights.filter((i) => i.type === "risk").length
+                    : smallInsights.filter((i) => i.type === "suggestion")
+                        .length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ---- Priority Spotlight (only on "all" tab) ---- */}
       {activeFilter === "all" && priorityInsight && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Column 1: Impact Score visual box (Left, 1.5/5 width span) */}
+          {/* Impact Score card */}
           <div
             className="lg:col-span-2 rounded-2xl p-6 text-white flex flex-col justify-between relative overflow-hidden min-h-[240px]"
             style={{
@@ -411,87 +465,95 @@ export function Insights() {
           >
             <div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                ★ Priority
+                ★ Top Performer
               </span>
             </div>
             <div className="relative z-10 mt-auto">
-              <p className="text-xs text-white/50 uppercase tracking-wider">Impact Score</p>
-              <p className="text-5xl font-black tracking-tight leading-none mt-1">
-                {priorityInsight.impactScore}<span className="text-lg font-normal text-white/40">/100</span>
+              <p className="text-xs text-white/50 uppercase tracking-wider mb-1">
+                Overall Score
+              </p>
+              <p className="text-5xl font-black tracking-tight leading-none">
+                {priorityInsight.impactScore}
+                <span className="text-lg font-normal text-white/40">/100</span>
+              </p>
+              <p className="text-sm text-white/60 mt-2 line-clamp-1">
+                {priorityInsight.title}
               </p>
             </div>
-            {/* Visual background element */}
             <div
               className="absolute inset-0 opacity-20 pointer-events-none"
               style={{
-                backgroundImage: "radial-gradient(circle at 70% 30%, #4338ca 0%, transparent 60%)",
+                backgroundImage:
+                  "radial-gradient(circle at 70% 30%, #4338ca 0%, transparent 60%)",
               }}
             />
           </div>
 
-          {/* Column 2: Opportunity strategy details (Center, 2/5 width span) */}
+          {/* Best idea details */}
           <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 flex flex-col justify-between min-h-[240px]">
             <div>
               <span className="inline-block mb-3 text-[10px] font-bold uppercase tracking-widest text-cyan-600 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                Opportunity
+                Best Opportunity
               </span>
               <h3 className="text-base font-bold text-foreground mb-2">
                 {priorityInsight.title}
               </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
                 {priorityInsight.body}
               </p>
             </div>
-            <div className="flex items-center gap-4 mt-6">
-              <Link href={`/ideas/${priorityInsight.ideaId}`} asChild>
-                <Button size="sm" className="bg-primary hover:bg-primary/95 text-white">
-                  Execute Strategy
-                </Button>
-              </Link>
-              <Link
-                href={`/ideas/${priorityInsight.ideaId}`}
-                className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1"
+            <Link href={`/ideas/${priorityInsight.ideaId}`} asChild>
+              <Button
+                size="sm"
+                className="mt-4 self-start gap-1.5 bg-primary hover:bg-primary/95 text-white"
               >
-                View Detailed Report
+                View Full Report
                 <ArrowUpRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
+              </Button>
+            </Link>
           </div>
 
-          {/* Column 3: Risk Alert (Right, 1.5/5 width span) */}
+          {/* Top Risk card — real data only */}
           <div className="lg:col-span-1 bg-card border border-border rounded-2xl p-6 flex flex-col justify-between min-h-[240px]">
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-red-600 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
-                  Risk
-                </span>
-                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <h3 className="text-sm font-bold text-foreground mb-1.5 line-clamp-1">
-                Churn Prediction Alert
-              </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                {riskInsight?.desc || "Enterprise segments are indicating potential churn indicators."}
-              </p>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-red-600 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                Top Risk
+              </span>
+              {topRisk ? (
+                <>
+                  <h3 className="text-sm font-bold text-foreground mt-3 mb-1.5 line-clamp-2">
+                    {topRisk.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                    {topRisk.desc}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-2">
+                    From:{" "}
+                    <span className="font-medium text-muted-foreground">
+                      {topRisk.ideaTitle}
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-3">
+                  No risks detected across your ideas.
+                </p>
+              )}
             </div>
-            <div className="mt-4">
-              <div className="rounded-lg bg-muted/40 border border-border px-3 py-2 flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Affected ARR</span>
-                <span className="text-xs font-bold text-red-500 font-mono">-$142,000</span>
-              </div>
-              {/* Progress bar */}
-              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mb-3">
-                <div className="h-full bg-red-500 rounded-full" style={{ width: "70%" }} />
-              </div>
-              <Button variant="outline" size="sm" className="w-full text-xs">
-                Start Outreach
-              </Button>
-            </div>
+            {topRisk && (
+              <Link
+                href={`/ideas/${topRisk.ideaId}`}
+                className="mt-4 text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+              >
+                View Analysis
+                <ArrowUpRight className="w-3 h-3" />
+              </Link>
+            )}
           </div>
         </div>
       )}
 
-      {/* ---- Suggestion / Opportunity grid ---- */}
+      {/* ---- Insight Feed ---- */}
       {filteredSmall.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {filteredSmall.map((insight) => (
@@ -500,85 +562,139 @@ export function Insights() {
         </div>
       )}
 
-      {filteredSmall.length === 0 && !showPriority && !showRisk && (
+      {filteredSmall.length === 0 && activeFilter !== "all" && (
         <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
           <Sparkles className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <h3 className="font-semibold mb-1">No insights in this category</h3>
+          <h3 className="font-semibold mb-1">No {activeFilter} found</h3>
           <p className="text-sm text-muted-foreground">
-            Check back soon — the engine is scanning.
+            Submit more ideas for analysis to generate {activeFilter}.
           </p>
         </div>
       )}
 
-      {/* ---- Distribution + System notice ---- */}
+      {/* ---- Distribution + Portfolio Summary (only on "all" tab) ---- */}
       {activeFilter === "all" && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          {/* Insight Distribution */}
           <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
               Insight Distribution
             </p>
             <div className="space-y-3">
-              {distribution.map((d) => (
-                <div
-                  key={d.label}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <span className={`w-2 h-2 rounded-full ${d.dot}`} />
-                    {d.label}
-                  </span>
-                  <span className="font-semibold text-foreground">
-                    {d.value}
-                  </span>
-                </div>
-              ))}
+              {distribution.map((d) => {
+                const total = distribution.reduce((a, b) => a + b.value, 0);
+                const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
+                return (
+                  <div key={d.label}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <span className={`w-2 h-2 rounded-full ${d.dot}`} />
+                        {d.label}
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {d.value}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${d.color}`}
+                        style={{
+                          width: `${pct}%`,
+                          transition: "width 0.5s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {/* AI Confidence chart (real overallScore data) */}
             <div className="mt-5 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
                 <BarChart2 className="w-3.5 h-3.5" />
-                AI Model Confidence
+                Score History (last {confidenceData.length} ideas)
               </p>
               <div className="flex items-end gap-1.5 h-16">
                 {confidenceData.map((h, i) => (
                   <div
                     key={i}
-                    className={`flex-1 rounded-t-sm ${i === 2 ? "bg-primary" : "bg-primary/20"}`}
-                    style={{ height: `${h}%` }}
+                    className={`flex-1 rounded-t-sm transition-all ${
+                      i === confidenceData.length - 1
+                        ? "bg-primary"
+                        : "bg-primary/25"
+                    }`}
+                    style={{ height: `${Math.max(4, h)}%` }}
+                    title={`Score: ${h}`}
                   />
                 ))}
               </div>
             </div>
           </div>
 
+          {/* Portfolio Overview — real data */}
           <div className="lg:col-span-3 rounded-xl border border-border bg-card p-5 flex flex-col">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2 text-primary text-xs font-semibold">
-                <Cpu className="w-3.5 h-3.5" />
-                System Notice
-                <span className="text-muted-foreground font-normal">
-                  · 1 day ago
-                </span>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Target className="w-3.5 h-3.5 text-primary" />
               </div>
-              <Badge variant="secondary" className="text-[10px]">
-                New model v4.2
-              </Badge>
+              <p className="text-sm font-semibold text-foreground">
+                Portfolio Overview
+              </p>
             </div>
-            <h3 className="text-sm font-semibold mb-2">
-              Enhanced Predictive Accuracy
-            </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4 flex-1">
-              Clariva's core AI has been updated. Insights now include "External
-              Market Context" providing a 360-degree view of your competitive
-              landscape and macro-economic factors.
+
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="rounded-lg bg-muted/50 border border-border p-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Ideas Analyzed
+                </p>
+                <p className="text-2xl font-black text-foreground mt-0.5">
+                  {totalIdeas}
+                </p>
+              </div>
+              <div className="rounded-lg bg-muted/50 border border-border p-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Avg Score
+                </p>
+                <p
+                  className={`text-2xl font-black mt-0.5 ${
+                    avgScore >= 70
+                      ? "text-emerald-500"
+                      : avgScore >= 50
+                        ? "text-amber-500"
+                        : "text-destructive"
+                  }`}
+                >
+                  {avgScore}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    /100
+                  </span>
+                </p>
+              </div>
+              <div className="rounded-lg bg-muted/50 border border-border p-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Total Signals
+                </p>
+                <p className="text-2xl font-black text-foreground mt-0.5">
+                  {smallInsights.length}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground leading-relaxed flex-1">
+              {avgScore >= 70
+                ? "Your portfolio is performing well. Focus on execution — the top-rated idea shows strong market fit signals."
+                : avgScore >= 50
+                  ? "Mixed signals across your portfolio. Consider strengthening the uniqueness and feasibility of lower-scoring ideas before committing resources."
+                  : "Most ideas are scoring below 50. Re-run analysis after sharpening your target niche and differentiators to improve your scores."}
             </p>
-            <div className="flex items-center gap-3">
-              <Button size="sm" variant="outline">
-                Learn More
-              </Button>
-              <button className="text-sm text-muted-foreground hover:text-foreground">
-                Dismiss
-              </button>
-            </div>
+
+            {hasAnyProcessing && (
+              <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 border border-border">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                One or more ideas are still being analyzed.
+              </div>
+            )}
           </div>
         </div>
       )}
