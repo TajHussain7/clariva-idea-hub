@@ -179,9 +179,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Upgrade Banner */}
         <div className="px-4 pb-2">
-          <div className="rounded-xl p-4" style={{ background: "linear-gradient(135deg, #4338ca 0%, #6d28d9 100%)" }}>
+          <div
+            className="rounded-xl p-4"
+            style={{
+              background: "linear-gradient(135deg, #4338ca 0%, #6d28d9 100%)",
+            }}
+          >
             <p className="text-xs font-bold text-white mb-1">Upgrade to Pro</p>
-            <p className="text-[11px] text-white/70 mb-3 leading-snug">Unlock unlimited AI Insights</p>
+            <p className="text-[11px] text-white/70 mb-3 leading-snug">
+              Unlock unlimited AI Insights
+            </p>
             <button className="w-full py-2 rounded-lg text-xs font-bold transition-all duration-150 active:scale-95 bg-white text-indigo-700 hover:bg-white/90">
               Upgrade Now
             </button>
@@ -274,21 +281,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 New Idea
               </Button>
             </Link>
-            {/* User chip */}
-            <div className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-muted transition-colors cursor-default">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{
-                  backgroundColor: "hsl(var(--primary)/0.12)",
-                  color: "hsl(var(--primary))",
-                }}
-              >
-                {userInitials}
-              </div>
-              <span className="text-sm font-medium hidden md:block max-w-30 truncate">
-                {user?.name || "User"}
-              </span>
-            </div>
           </div>
         </header>
 

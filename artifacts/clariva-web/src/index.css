@@ -140,15 +140,15 @@
   --chart-4: 271 65% 55%;
   --chart-5: 142 62% 40%;
 
-  /* Sidebar — always dark navy regardless of light/dark app theme */
-  --sidebar: 237 50% 7%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-border: 237 35% 14%;
-  --sidebar-primary: 245 73% 60%;
+  /* Sidebar — light surface, follows the light theme */
+  --sidebar: 240 100% 99%;
+  --sidebar-foreground: 222 40% 12%;
+  --sidebar-border: 247 14% 88%;
+  --sidebar-primary: 245 73% 47%; /* Deep indigo primary, matches light accent */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 237 35% 16%;
-  --sidebar-accent-foreground: 0 0% 85%;
-  --sidebar-ring: 245 73% 60%;
+  --sidebar-accent: 234 100% 95%;
+  --sidebar-accent-foreground: 222 40% 12%;
+  --sidebar-ring: 245 73% 47%;
 
   /* Precision Intelligence custom */
   --pi-sidebar-bg: #0d0c22;
