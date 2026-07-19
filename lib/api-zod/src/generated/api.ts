@@ -153,6 +153,9 @@ export const ListIdeasResponseItem = zod.object({
               desc: zod.string(),
               lang: zod.string(),
               url: zod.string(),
+              gapAnalysis: zod
+                .object({ gap: zod.string(), opportunity: zod.string() })
+                .nullish(),
             }),
           )
           .nullish(),
@@ -247,6 +250,9 @@ export const CompareIdeasResponseItem = zod.object({
               desc: zod.string(),
               lang: zod.string(),
               url: zod.string(),
+              gapAnalysis: zod
+                .object({ gap: zod.string(), opportunity: zod.string() })
+                .nullish(),
             }),
           )
           .nullish(),
@@ -329,6 +335,9 @@ export const GetIdeaResponse = zod.object({
               desc: zod.string(),
               lang: zod.string(),
               url: zod.string(),
+              gapAnalysis: zod
+                .object({ gap: zod.string(), opportunity: zod.string() })
+                .nullish(),
             }),
           )
           .nullish(),
