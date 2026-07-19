@@ -9,6 +9,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
 import { requireTeamMember } from "../middlewares/team-auth.js";
+import { createNotification } from "../lib/notify.js";
 
 const router: IRouter = Router();
 
@@ -220,6 +221,35 @@ router.post(
           if (client.readyState === 1 && client.teamId === discussion.teamId) {
             client.send(JSON.stringify(wsMessage));
           }
+        });
+      }
+
+      // Notify all other team members about the new message
+      const otherMembers = await db
+        .select({ userId: teamMembersTable.userId })
+        .from(teamMembersTable)
+        .where(
+          and(
+            eq(teamMembersTable.teamId, discussion.teamId),
+            // exclude sender — we have to do this client-side since drizzle
+            // doesn't support ne() without importing it; use a simple filter
+          ),
+        );
+
+      const senderName = fullMessage.user?.name ?? "Someone";
+      const snippet =
+        content.trim().slice(0, 80) + (content.trim().length > 80 ? "…" : "");
+
+      for (const m of otherMembers) {
+        if (m.userId === userId) continue; // skip sender
+        createNotification({
+          userId: m.userId,
+          type: "discussion_message",
+          title: `${senderName} posted in a team discussion`,
+          body: `"${discussion.title}" — "${snippet}"`,
+          targetPath: `/team/${discussion.teamId}`,
+          entityType: "discussion",
+          entityId: discussionId,
         });
       }
 
