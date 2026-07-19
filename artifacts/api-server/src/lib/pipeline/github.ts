@@ -7,6 +7,10 @@ export interface GithubRepo {
   desc: string;
   lang: string;
   url: string;
+  gapAnalysis?: {
+    gap: string;
+    opportunity: string;
+  };
 }
 
 export interface GithubResult {
@@ -18,11 +22,53 @@ export interface GithubResult {
 
 function buildSearchQuery(title: string, description: string): string {
   const stopWords = new Set([
-    "a", "an", "the", "and", "or", "but", "for", "with", "to", "of",
-    "in", "on", "at", "is", "are", "was", "were", "be", "been", "that",
-    "this", "it", "its", "i", "we", "you", "they", "do", "does", "did",
-    "can", "could", "will", "would", "should", "have", "has", "had",
-    "my", "your", "our", "their", "which", "how", "what", "when", "who",
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "but",
+    "for",
+    "with",
+    "to",
+    "of",
+    "in",
+    "on",
+    "at",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "that",
+    "this",
+    "it",
+    "its",
+    "i",
+    "we",
+    "you",
+    "they",
+    "do",
+    "does",
+    "did",
+    "can",
+    "could",
+    "will",
+    "would",
+    "should",
+    "have",
+    "has",
+    "had",
+    "my",
+    "your",
+    "our",
+    "their",
+    "which",
+    "how",
+    "what",
+    "when",
+    "who",
   ]);
 
   const titleWords = title
@@ -37,14 +83,18 @@ function buildSearchQuery(title: string, description: string): string {
     .split(/\s+/)
     .filter((w) => w.length > 4 && !stopWords.has(w));
 
-  const keywords = [...new Set([...titleWords.slice(0, 4), ...descWords.slice(0, 3)])];
+  const keywords = [
+    ...new Set([...titleWords.slice(0, 4), ...descWords.slice(0, 3)]),
+  ];
   return keywords.slice(0, 5).join(" ");
 }
 
-async function executeGithubSearch(query: string): Promise<{ totalCount: number; items: any[] }> {
+async function executeGithubSearch(
+  query: string,
+): Promise<{ totalCount: number; items: any[] }> {
   try {
     const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query + " is:public")}&sort=stars&order=desc&per_page=12`;
-    
+
     logger.info({ query }, "Executing GitHub Search API query");
 
     const response = await fetch(url, {
@@ -59,7 +109,10 @@ async function executeGithubSearch(query: string): Promise<{ totalCount: number;
     });
 
     if (!response.ok) {
-      logger.warn({ status: response.status, statusText: response.statusText }, "GitHub API non-OK response");
+      logger.warn(
+        { status: response.status, statusText: response.statusText },
+        "GitHub API non-OK response",
+      );
       return { totalCount: 0, items: [] };
     }
 
@@ -79,16 +132,33 @@ async function executeGithubSearch(query: string): Promise<{ totalCount: number;
 
 export async function fetchGithubData(
   title: string,
-  description: string
+  description: string,
 ): Promise<GithubResult> {
   const specificQuery = buildSearchQuery(title, description);
-  
+
   // 1. Try specific query
   let { totalCount, items } = await executeGithubSearch(specificQuery);
-  
+
   // 2. Fallback: If 0 or very few results found, try a broader query using title keywords
   if (items.length < 3) {
-    const titleStopWords = new Set(["a", "an", "the", "and", "or", "to", "for", "with", "of", "in", "on", "at", "is", "hub", "idea", "creative"]);
+    const titleStopWords = new Set([
+      "a",
+      "an",
+      "the",
+      "and",
+      "or",
+      "to",
+      "for",
+      "with",
+      "of",
+      "in",
+      "on",
+      "at",
+      "is",
+      "hub",
+      "idea",
+      "creative",
+    ]);
     const titleQuery = title
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, " ")
@@ -98,7 +168,10 @@ export async function fetchGithubData(
       .join(" ");
 
     if (titleQuery && titleQuery !== specificQuery) {
-      logger.info({ originalQuery: specificQuery, fallbackQuery: titleQuery }, "GitHub specific search returned few results. Trying fallback title search.");
+      logger.info(
+        { originalQuery: specificQuery, fallbackQuery: titleQuery },
+        "GitHub specific search returned few results. Trying fallback title search.",
+      );
       const fallbackResult = await executeGithubSearch(titleQuery);
       if (fallbackResult.items.length > items.length) {
         totalCount = fallbackResult.totalCount;
@@ -133,7 +206,10 @@ export async function fetchGithubData(
       ? Math.round(repos.reduce((s, r) => s + r.stars, 0) / repos.length)
       : 0;
 
-  logger.info({ reposFound: repos.length, totalCount }, "GitHub search completed");
+  logger.info(
+    { reposFound: repos.length, totalCount },
+    "GitHub search completed",
+  );
 
   return {
     repos: repos.slice(0, 8),
