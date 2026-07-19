@@ -488,7 +488,8 @@ export function Settings() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Account Settings</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage your profile information, security preferences, and interface theme.
+          Manage your profile information, security preferences, and interface
+          theme.
         </p>
       </div>
 
@@ -517,7 +518,10 @@ export function Settings() {
             <div className="flex items-center gap-4">
               <div className="relative shrink-0">
                 <Avatar className="h-14 w-14 ring-2 ring-primary/15">
-                  <AvatarImage src={avatarUrl || undefined} alt={user?.name || "User avatar"} />
+                  <AvatarImage
+                    src={avatarUrl || undefined}
+                    alt={user?.name || "User avatar"}
+                  />
                   <AvatarFallback className="bg-primary/10 text-primary font-bold">
                     {userInitials}
                   </AvatarFallback>
@@ -539,9 +543,17 @@ export function Settings() {
                 />
               </div>
               <div>
-                <p className="text-sm font-semibold">{user?.name || "Your profile"}</p>
-                <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
-                {avatarError && <p className="text-xs text-destructive mt-0.5">{avatarError}</p>}
+                <p className="text-sm font-semibold">
+                  {user?.name || "Your profile"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {user?.email || ""}
+                </p>
+                {avatarError && (
+                  <p className="text-xs text-destructive mt-0.5">
+                    {avatarError}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -557,7 +569,9 @@ export function Settings() {
                   className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                 />
                 {profileForm.formState.errors.name && (
-                  <p className="text-xs text-destructive">{profileForm.formState.errors.name.message}</p>
+                  <p className="text-xs text-destructive">
+                    {profileForm.formState.errors.name.message}
+                  </p>
                 )}
               </div>
 
@@ -583,7 +597,9 @@ export function Settings() {
                   placeholder="Tell us about yourself..."
                 />
                 {profileForm.formState.errors.bio && (
-                  <p className="text-xs text-destructive">{profileForm.formState.errors.bio.message}</p>
+                  <p className="text-xs text-destructive">
+                    {profileForm.formState.errors.bio.message}
+                  </p>
                 )}
               </div>
             </form>
@@ -612,8 +628,12 @@ export function Settings() {
                     : "border-border hover:border-primary/40"
                 }`}
               >
-                <Sun className={`w-6 h-6 ${theme === "light" ? "text-primary" : "text-muted-foreground"}`} />
-                <span className={`text-sm font-semibold ${theme === "light" ? "text-primary" : "text-muted-foreground"}`}>
+                <Sun
+                  className={`w-6 h-6 ${theme === "light" ? "text-primary" : "text-muted-foreground"}`}
+                />
+                <span
+                  className={`text-sm font-semibold ${theme === "light" ? "text-primary" : "text-muted-foreground"}`}
+                >
                   Light
                 </span>
               </button>
@@ -627,8 +647,12 @@ export function Settings() {
                     : "border-border hover:border-primary/40"
                 }`}
               >
-                <Moon className={`w-6 h-6 ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`} />
-                <span className={`text-sm font-semibold ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`}>
+                <Moon
+                  className={`w-6 h-6 ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`}
+                />
+                <span
+                  className={`text-sm font-semibold ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`}
+                >
                   Dark
                 </span>
               </button>
@@ -645,7 +669,9 @@ export function Settings() {
                 className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
                 {languageOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -661,7 +687,9 @@ export function Settings() {
               />
               <ToggleSwitch
                 checked={notifications.analysisComplete}
-                onChange={(v) => handleToggleNotification("analysisComplete", v)}
+                onChange={(v) =>
+                  handleToggleNotification("analysisComplete", v)
+                }
                 label="Analysis Complete"
                 description="Notify when an idea finishes AI analysis."
                 disabled={updateMeMutation.isPending}
@@ -694,7 +722,9 @@ export function Settings() {
                   className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                 />
                 {passwordForm.formState.errors.currentPassword && (
-                  <p className="text-xs text-destructive">{passwordForm.formState.errors.currentPassword.message}</p>
+                  <p className="text-xs text-destructive">
+                    {passwordForm.formState.errors.currentPassword.message}
+                  </p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -708,7 +738,9 @@ export function Settings() {
                   className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                 />
                 {passwordForm.formState.errors.newPassword && (
-                  <p className="text-xs text-destructive">{passwordForm.formState.errors.newPassword.message}</p>
+                  <p className="text-xs text-destructive">
+                    {passwordForm.formState.errors.newPassword.message}
+                  </p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -722,7 +754,9 @@ export function Settings() {
                   className="h-10 bg-background border-border focus-visible:ring-primary/30 focus-visible:border-primary"
                 />
                 {passwordForm.formState.errors.confirmPassword && (
-                  <p className="text-xs text-destructive">{passwordForm.formState.errors.confirmPassword.message}</p>
+                  <p className="text-xs text-destructive">
+                    {passwordForm.formState.errors.confirmPassword.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -735,8 +769,17 @@ export function Settings() {
               >
                 Discard
               </Button>
-              <Button size="sm" type="submit" className="gap-2" disabled={isPasswordSaving}>
-                {isPasswordSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+              <Button
+                size="sm"
+                type="submit"
+                className="gap-2"
+                disabled={isPasswordSaving}
+              >
+                {isPasswordSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Shield className="w-4 h-4" />
+                )}
                 Update Password
               </Button>
             </div>
@@ -744,17 +787,20 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* ---- Row 3: Danger Zone + 2FA ---- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* ---- Row 3: Danger Zone ---- */}
+      <div>
         {/* Danger Zone */}
         <Card className="border-destructive/40 bg-destructive/5 shadow-sm">
           <CardContent className="pt-6 pb-6">
             <div className="flex items-center gap-2 mb-2">
               <Trash2 className="w-5 h-5 text-destructive" />
-              <h3 className="text-base font-bold text-destructive">Danger Zone</h3>
+              <h3 className="text-base font-bold text-destructive">
+                Danger Zone
+              </h3>
             </div>
             <p className="text-sm text-destructive/80 mb-1">
-              Once you delete your account, there is no going back. Please be certain.
+              Once you delete your account, there is no going back. Please be
+              certain.
             </p>
             <form onSubmit={handleDeleteAccount} className="mt-4 space-y-3">
               <PasswordInput
@@ -765,7 +811,9 @@ export function Settings() {
                 className="h-10 bg-background border-destructive/30 focus-visible:ring-destructive/30 focus-visible:border-destructive"
               />
               {deleteForm.formState.errors.currentPassword && (
-                <p className="text-xs text-destructive">{deleteForm.formState.errors.currentPassword.message}</p>
+                <p className="text-xs text-destructive">
+                  {deleteForm.formState.errors.currentPassword.message}
+                </p>
               )}
               <Button
                 variant="destructive"
@@ -774,39 +822,14 @@ export function Settings() {
                 className="gap-2"
                 disabled={isDeleteSaving}
               >
-                {isDeleteSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {isDeleteSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
                 Delete Account
               </Button>
             </form>
-          </CardContent>
-        </Card>
-
-        {/* Two-Factor Authentication */}
-        <Card className="bg-card border-border shadow-sm">
-          <CardContent className="pt-6 pb-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Shield className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold">Two-Factor Authentication</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    Add an extra layer of security to your account.
-                  </p>
-                </div>
-              </div>
-              {/* 2FA toggle — visual only, no backend yet */}
-              <button
-                type="button"
-                className="relative w-11 h-6 rounded-full bg-primary shrink-0 mt-1"
-                title="Two-factor authentication (coming soon)"
-              >
-                <span
-                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200"
-                />
-              </button>
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -819,7 +842,11 @@ export function Settings() {
           onClick={handleProfileSave}
           disabled={isProfileSaving}
         >
-          {isProfileSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {isProfileSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
           Save All Changes
         </Button>
       </div>
