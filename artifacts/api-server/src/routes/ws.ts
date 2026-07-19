@@ -10,6 +10,7 @@ export function setupWebSocket(app: Express) {
   const wsClients: Map<number, Set<WebSocket>> = new Map(); // teamId -> Set of clients
   const feedClients: Set<WebSocket> = new Set(); // global feed subscribers
   const challengeClients: Map<number, Set<WebSocket>> = new Map(); // challengeId -> Set of clients
+  const collabConvoClients: Map<number, Set<WebSocket>> = new Map(); // offerId -> Set of clients
 
   (app as any).ws("/api/ws", (ws: any, req: Request) => {
     const userId = (req.session as any)?.userId;
@@ -22,6 +23,7 @@ export function setupWebSocket(app: Express) {
     let currentTeamId: number | null = null;
     let subscribedToFeed = false;
     let currentChallengeId: number | null = null;
+    const subscribedCollabOfferIds = new Set<number>();
 
     ws.on("message", async (data: string) => {
       try {
@@ -99,7 +101,6 @@ export function setupWebSocket(app: Express) {
             currentTeamId = null;
           }
         } else if (message.type === "subscribe_feed") {
-          // Subscribe to the global public feed channel
           feedClients.add(ws);
           subscribedToFeed = true;
           ws.send(JSON.stringify({ type: "subscribed_feed" }));
@@ -127,6 +128,28 @@ export function setupWebSocket(app: Express) {
             challengeClients.get(currentChallengeId)?.delete(ws);
             currentChallengeId = null;
           }
+
+          // ─── Collab Conversation ────────────────────────────────────────────
+        } else if (message.type === "subscribe_collab_convo") {
+          const offerId = message.offerId;
+          if (!offerId || typeof offerId !== "number") {
+            ws.send(
+              JSON.stringify({ type: "error", error: "Invalid offerId" }),
+            );
+            return;
+          }
+          if (!collabConvoClients.has(offerId)) {
+            collabConvoClients.set(offerId, new Set());
+          }
+          collabConvoClients.get(offerId)!.add(ws);
+          subscribedCollabOfferIds.add(offerId);
+          ws.send(JSON.stringify({ type: "subscribed_collab_convo", offerId }));
+        } else if (message.type === "unsubscribe_collab_convo") {
+          const offerId = message.offerId;
+          if (offerId && typeof offerId === "number") {
+            collabConvoClients.get(offerId)?.delete(ws);
+            subscribedCollabOfferIds.delete(offerId);
+          }
         } else if (message.type === "ping") {
           ws.send(JSON.stringify({ type: "pong" }));
         }
@@ -136,10 +159,14 @@ export function setupWebSocket(app: Express) {
     });
 
     ws.on("close", async () => {
-      // Clean up feed / challenge subscriptions
       if (subscribedToFeed) feedClients.delete(ws);
       if (currentChallengeId)
         challengeClients.get(currentChallengeId)?.delete(ws);
+
+      // Clean up collab convo subscriptions
+      for (const offerId of subscribedCollabOfferIds) {
+        collabConvoClients.get(offerId)?.delete(ws);
+      }
 
       if (currentTeamId) {
         wsClients.get(currentTeamId)?.delete(ws);
@@ -201,10 +228,21 @@ export function setupWebSocket(app: Express) {
     }
   }
 
+  function broadcastToCollabConvo(offerId: number, message: any) {
+    const clients = collabConvoClients.get(offerId);
+    if (clients) {
+      const data = JSON.stringify(message);
+      clients.forEach((client) => {
+        if (client.readyState === 1) client.send(data);
+      });
+    }
+  }
+
   // Register broadcast helpers globally so routes can use them
   (global as any).broadcastToTeam = broadcastToTeam;
   (global as any).broadcastToFeed = broadcastToFeed;
   (global as any).broadcastToChallenge = broadcastToChallenge;
+  (global as any).broadcastToCollabConvo = broadcastToCollabConvo;
 }
 
 export default setupWebSocket;

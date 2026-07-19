@@ -19,3 +19,4 @@ export * from "./weekly-challenges";
 export * from "./challenge-submissions";
 export * from "./challenge-votes";
 export * from "./user-badges";
+export * from "./collab-messages";
