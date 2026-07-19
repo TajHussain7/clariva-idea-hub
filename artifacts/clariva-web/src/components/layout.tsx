@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LogOut,
@@ -19,6 +19,8 @@ import {
   Users,
   Globe,
   Trophy,
+  X,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +43,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme, setTheme } = useTheme();
   const updateMeMutation = useUpdateMe();
 
+  // Sidebar collapsed state (persists in sessionStorage for UX continuity)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return sessionStorage.getItem("sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  // Upgrade banner dismissed state — resets on every page refresh (no storage)
+  const [showUpgradeBanner, setShowUpgradeBanner] = useState(true);
+
   // Redirect unauthenticated users to login page
   useEffect(() => {
     if (!isLoading && !user) {
@@ -60,6 +74,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
       setTheme(user.theme);
     }
   }, [user?.theme, theme, setTheme]);
+
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        sessionStorage.setItem("sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const handleToggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -116,88 +140,149 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
       {/* ===== Sidebar ===== */}
-      <aside className="w-full md:w-64 shrink-0 flex flex-col h-screen md:sticky md:top-0 z-50 border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <aside
+        className={`shrink-0 flex flex-col h-screen md:sticky md:top-0 z-50 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 ${
+          sidebarCollapsed ? "w-full md:w-16" : "w-full md:w-64"
+        }`}
+      >
         {/* Brand Logo */}
-        <div className="px-6 py-6 flex items-center gap-3 border-b border-sidebar-border">
-          <div className="w-10 h-10 flex items-center justify-center rounded-xl shrink-0 bg-sidebar-primary">
-            <Sparkles className="w-5 h-5 text-sidebar-primary-foreground" />
+        <div className="px-3 py-6 flex items-center justify-between border-b border-sidebar-border">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 flex items-center justify-center rounded-xl shrink-0 bg-sidebar-primary">
+              <Sparkles className="w-5 h-5 text-sidebar-primary-foreground" />
+            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <h1 className="text-xl font-black tracking-tight leading-none text-sidebar-foreground">
+                  Clariva
+                </h1>
+                <p className="text-xs mt-0.5 font-medium tracking-wide text-sidebar-foreground/60">
+                  AI-Powered SaaS
+                </p>
+              </div>
+            )}
           </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tight leading-none text-sidebar-foreground">
-              Clariva
-            </h1>
-            <p className="text-xs mt-0.5 font-medium tracking-wide text-sidebar-foreground/60">
-              AI-Powered SaaS
-            </p>
-          </div>
+          {/* Hamburger toggle */}
+          <button
+            onClick={handleToggleSidebar}
+            className="p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors shrink-0"
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <Menu className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
-            Navigation
-          </p>
+        <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+          {!sidebarCollapsed && (
+            <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+              Navigation
+            </p>
+          )}
           {mainNavItems.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                title={sidebarCollapsed ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-all duration-150 rounded-r-lg border-l-4 ${
                   active
                     ? "text-sidebar-foreground bg-sidebar-accent font-semibold border-sidebar-primary"
                     : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 border-transparent"
-                }`}
+                } ${sidebarCollapsed ? "justify-center" : ""}`}
               >
                 <item.icon className="w-4 h-4 shrink-0" />
-                {item.label}
+                {!sidebarCollapsed && item.label}
               </Link>
             );
           })}
 
-          <p className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
-            Intelligence
-          </p>
+          {!sidebarCollapsed && (
+            <p className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+              Intelligence
+            </p>
+          )}
+          {sidebarCollapsed && <div className="h-3" />}
           {insightNavItems.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                title={sidebarCollapsed ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-all duration-150 rounded-r-lg border-l-4 ${
                   active
                     ? "text-sidebar-foreground bg-sidebar-accent font-semibold border-sidebar-primary"
                     : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 border-transparent"
-                }`}
+                } ${sidebarCollapsed ? "justify-center" : ""}`}
               >
                 <item.icon className="w-4 h-4 shrink-0" />
-                {item.label}
+                {!sidebarCollapsed && item.label}
               </Link>
             );
           })}
         </nav>
 
         {/* Upgrade Banner */}
-        <div className="px-4 pb-2">
-          <div
-            className="rounded-xl p-4"
-            style={{
-              background: "linear-gradient(135deg, #4338ca 0%, #6d28d9 100%)",
-            }}
-          >
-            <p className="text-xs font-bold text-white mb-1">Upgrade to Pro</p>
-            <p className="text-[11px] text-white/70 mb-3 leading-snug">
-              Unlock unlimited AI Insights
-            </p>
-            <button className="w-full py-2 rounded-lg text-xs font-bold transition-all duration-150 active:scale-95 bg-white text-indigo-700 hover:bg-white/90">
-              Upgrade Now
-            </button>
+        {!sidebarCollapsed && showUpgradeBanner && (
+          <div className="px-4 pb-2">
+            <div
+              className="rounded-xl p-4 relative"
+              style={{
+                background: "linear-gradient(135deg, #4338ca 0%, #6d28d9 100%)",
+              }}
+            >
+              {/* Dismiss button */}
+              <button
+                onClick={() => setShowUpgradeBanner(false)}
+                className="absolute top-2 right-2 p-0.5 rounded text-white/60 hover:text-white transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+              <p className="text-xs font-bold text-white mb-1 pr-5">
+                Upgrade to Pro
+              </p>
+              <p className="text-[11px] text-white/70 mb-3 leading-snug">
+                Unlock unlimited AI Insights
+              </p>
+              <button className="w-full py-2 rounded-lg text-xs font-bold transition-all duration-150 active:scale-95 bg-white text-indigo-700 hover:bg-white/90">
+                Upgrade Now
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* User Footer */}
-        <div className="px-4 py-4 border-t border-sidebar-border flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <div
+          className={`px-3 py-4 border-t border-sidebar-border flex items-center gap-2 ${
+            sidebarCollapsed ? "justify-center flex-col" : "justify-between"
+          }`}
+        >
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Avatar className="w-8 h-8 shrink-0 border border-sidebar-border">
+                <AvatarImage
+                  src={user?.avatarUrl || undefined}
+                  alt={user?.name || "User avatar"}
+                />
+                <AvatarFallback className="text-xs font-bold bg-sidebar-primary/20 text-sidebar-primary">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate leading-tight text-sidebar-foreground">
+                  {user?.name || "User"}
+                </p>
+                <p className="text-xs truncate leading-tight text-sidebar-foreground/60">
+                  {user?.email}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {sidebarCollapsed && (
             <Avatar className="w-8 h-8 shrink-0 border border-sidebar-border">
               <AvatarImage
                 src={user?.avatarUrl || undefined}
@@ -207,16 +292,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {userInitials}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate leading-tight text-sidebar-foreground">
-                {user?.name || "User"}
-              </p>
-              <p className="text-xs truncate leading-tight text-sidebar-foreground/60">
-                {user?.email}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
+          )}
+
+          <div
+            className={`flex items-center gap-1 shrink-0 ${
+              sidebarCollapsed ? "flex-col" : ""
+            }`}
+          >
             <button
               onClick={handleToggleTheme}
               className="p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
@@ -281,6 +363,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 New Idea
               </Button>
             </Link>
+            {/* User chip */}
+            <div className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-muted transition-colors cursor-default">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{
+                  backgroundColor: "hsl(var(--primary)/0.12)",
+                  color: "hsl(var(--primary))",
+                }}
+              >
+                {userInitials}
+              </div>
+              <span className="text-sm font-medium hidden md:block max-w-30 truncate">
+                {user?.name || "User"}
+              </span>
+            </div>
           </div>
         </header>
 
