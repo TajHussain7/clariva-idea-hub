@@ -9,6 +9,7 @@ import teamDiscussionsRouter from "./team-discussions.js";
 import teamPresenceRouter from "./team-presence.js";
 import publicFeedRouter from "./public-feed.js";
 import challengesRouter from "./challenges.js";
+import collabMessagesRouter from "./collab-messages.js";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(teamDiscussionsRouter);
 router.use(teamPresenceRouter);
 router.use(publicFeedRouter);
 router.use(challengesRouter);
+router.use(collabMessagesRouter);
 
 export default router;

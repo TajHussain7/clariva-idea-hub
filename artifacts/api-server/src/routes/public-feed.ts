@@ -7,6 +7,7 @@ import {
   collaborationOffersTable,
   ideasTable,
   usersTable,
+  analysesTable,
 } from "@workspace/db";
 import { eq, and, sql, desc, gt } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
@@ -582,6 +583,37 @@ router.patch(
     }
 
     res.json(updated);
+  },
+);
+
+// ─── GET /feed/:publicIdeaId/analysis ────────────────────────────────────────
+// Returns the AI analysis for a published idea (any authenticated user).
+router.get(
+  "/feed/:publicIdeaId/analysis",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const publicIdeaId = parseInt(String(req.params.publicIdeaId ?? ""), 10);
+    if (isNaN(publicIdeaId)) {
+      res.status(400).json({ error: "Invalid ID" });
+      return;
+    }
+
+    const [pub] = await db
+      .select({ ideaId: publicIdeasTable.ideaId })
+      .from(publicIdeasTable)
+      .where(eq(publicIdeasTable.id, publicIdeaId));
+
+    if (!pub) {
+      res.status(404).json({ error: "Published idea not found" });
+      return;
+    }
+
+    const [analysis] = await db
+      .select()
+      .from(analysesTable)
+      .where(eq(analysesTable.ideaId, pub.ideaId));
+
+    res.json(analysis ?? null);
   },
 );
 
