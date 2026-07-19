@@ -5,13 +5,9 @@ import {
   RefreshCw,
   AlertTriangle,
   Lightbulb,
-  TrendingUp,
-  ShieldAlert,
-  Terminal,
   Activity,
   CheckCircle2,
   ChevronRight,
-  Github,
   Star,
   Code2,
   FileDown,
@@ -25,6 +21,7 @@ import {
   ExternalLink,
   TrendingDown,
   Zap,
+  FileText,
 } from "lucide-react";
 import {
   useGetIdea,
@@ -172,8 +169,180 @@ function scoreColor(score: number) {
   return "text-destructive";
 }
 
+/* ======================= Markdown Renderer ======================= */
+function parseInline(text: string): React.ReactNode[] {
+  // Handle **bold** and [text](url) inline
+  const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-semibold text-foreground">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      return (
+        <a
+          key={i}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary hover:underline inline-flex items-center gap-0.5 font-medium"
+        >
+          {linkMatch[1]}
+          <ExternalLink className="w-3 h-3 opacity-60" />
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function MarkdownReport({ content }: { content: string }) {
+  if (!content || content.trim().length < 20) return null;
+
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let listBuffer: React.ReactNode[] = [];
+  let keyIdx = 0;
+
+  const key = () => `md-${keyIdx++}`;
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    elements.push(
+      <ul key={key()} className="space-y-2 my-2 pl-1">
+        {listBuffer}
+      </ul>,
+    );
+    listBuffer = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+
+    // H3 section header
+    if (line.startsWith("### ")) {
+      flushList();
+      const text = line.slice(4).trim();
+      elements.push(
+        <div key={key()} className="mt-7 mb-3 first:mt-0">
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2.5 border-b border-border">
+            {text}
+          </h3>
+        </div>,
+      );
+      continue;
+    }
+
+    // H4 sub-header
+    if (line.startsWith("#### ")) {
+      flushList();
+      elements.push(
+        <h4
+          key={key()}
+          className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1"
+        >
+          {line.slice(5).trim()}
+        </h4>,
+      );
+      continue;
+    }
+
+    // Verdict lines
+    const isGo = line.includes("🟢");
+    const isConditional = line.includes("🟡");
+    const isNoGo = line.includes("🔴");
+    if (isGo || isConditional || isNoGo) {
+      flushList();
+      const bg = isGo
+        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+        : isConditional
+          ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400"
+          : "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400";
+      const cleaned = line.replace(/\*\*/g, "").trim();
+      elements.push(
+        <div
+          key={key()}
+          className={`rounded-lg border px-4 py-3 font-semibold text-sm mt-2 ${bg}`}
+        >
+          {cleaned}
+        </div>,
+      );
+      continue;
+    }
+
+    // Idea–Market Fit Score line
+    if (/\*\*Score:\s*\d+\/10\*\*/.test(line)) {
+      flushList();
+      const scoreMatch = line.match(/Score:\s*(\d+)\/10/);
+      const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+      const sColor =
+        score !== null
+          ? score >= 7
+            ? "text-emerald-500"
+            : score >= 5
+              ? "text-amber-500"
+              : "text-destructive"
+          : "text-foreground";
+      elements.push(
+        <div
+          key={key()}
+          className="flex items-center gap-4 my-3 p-3.5 rounded-xl bg-muted/50 border border-border"
+        >
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Idea–Market Fit
+          </span>
+          <span className={`text-3xl font-black tabular-nums ${sColor}`}>
+            {score}
+            <span className="text-base font-normal text-muted-foreground">
+              /10
+            </span>
+          </span>
+        </div>,
+      );
+      continue;
+    }
+
+    // List items (- or * or numbered)
+    if (/^[\*\-]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
+      const text = line.replace(/^[\*\-]\s+/, "").replace(/^\d+\.\s+/, "");
+      listBuffer.push(
+        <li
+          key={key()}
+          className="flex items-start gap-2 text-sm text-muted-foreground leading-relaxed"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 shrink-0 mt-[7px]" />
+          <span className="min-w-0">{parseInline(text)}</span>
+        </li>,
+      );
+      continue;
+    }
+
+    // Empty line
+    if (!line.trim()) {
+      flushList();
+      continue;
+    }
+
+    // Regular paragraph
+    flushList();
+    elements.push(
+      <p key={key()} className="text-sm text-muted-foreground leading-relaxed">
+        {parseInline(line)}
+      </p>,
+    );
+  }
+
+  flushList();
+  return <div className="space-y-1">{elements}</div>;
+}
+
 /* ======================= Repo Card ======================= */
-function RepoCard({ repo, showGap = true }: { repo: any; showGap?: boolean }) {
+function RepoCard({ repo }: { repo: any }) {
   const [gapOpen, setGapOpen] = useState(false);
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3 hover:border-primary/30 transition-colors">
@@ -201,7 +370,7 @@ function RepoCard({ repo, showGap = true }: { repo: any; showGap?: boolean }) {
         <span className="text-[11px] font-medium text-primary/70 bg-primary/5 rounded-full px-2 py-0.5">
           {repo.lang}
         </span>
-        {showGap && repo.gapAnalysis && (
+        {repo.gapAnalysis && (
           <button
             onClick={() => setGapOpen((v) => !v)}
             className="text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-full px-2 py-0.5 hover:bg-amber-500/20 transition-colors"
@@ -210,7 +379,7 @@ function RepoCard({ repo, showGap = true }: { repo: any; showGap?: boolean }) {
           </button>
         )}
       </div>
-      {showGap && gapOpen && repo.gapAnalysis && (
+      {gapOpen && repo.gapAnalysis && (
         <div className="mt-2.5 rounded-md border border-amber-500/20 bg-amber-500/5 p-3 space-y-2 animate-in fade-in duration-200">
           <div className="flex items-start gap-2">
             <div className="w-5 h-5 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
@@ -241,55 +410,6 @@ function RepoCard({ repo, showGap = true }: { repo: any; showGap?: boolean }) {
         </div>
       )}
     </div>
-  );
-}
-
-/* ======================= Insight Card ======================= */
-function InsightCard({
-  items,
-  icon: Icon,
-  title,
-  accentClass,
-  iconColorClass,
-  iconBgClass,
-}: {
-  items: any[] | undefined | null;
-  icon: any;
-  title: string;
-  accentClass: string;
-  iconColorClass: string;
-  iconBgClass: string;
-}) {
-  if (!items || items.length === 0) return null;
-  return (
-    <Card
-      className={`bg-card border-border h-full overflow-hidden ${accentClass}`}
-    >
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center ${iconBgClass}`}
-          >
-            <Icon className={`w-3.5 h-3.5 ${iconColorClass}`} />
-          </div>
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-4">
-          {items.map((item, i) => (
-            <li key={i} className="space-y-0.5">
-              <div className="font-semibold text-sm text-foreground">
-                {item.title}
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {item.desc}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -325,7 +445,6 @@ function PivotSuggestionsPanel({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
-      {/* Header card */}
       <Card className="bg-amber-500/5 border-amber-500/20 overflow-hidden">
         <div className="h-0.5 w-full bg-gradient-to-r from-amber-400 via-primary to-amber-400" />
         <CardHeader className="pb-3">
@@ -348,7 +467,6 @@ function PivotSuggestionsPanel({
             </span>
             . Generate 3 concrete, targeted pivot directions to strengthen it.
           </p>
-
           {!hasTriggered && (
             <Button
               onClick={handleGenerate}
@@ -359,14 +477,12 @@ function PivotSuggestionsPanel({
               Generate Pivot Suggestions
             </Button>
           )}
-
           {isPending && (
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
               Analyzing your idea and generating targeted pivots…
             </div>
           )}
-
           {error && (
             <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertTriangle className="w-4 h-4" />
@@ -385,13 +501,12 @@ function PivotSuggestionsPanel({
         </CardContent>
       </Card>
 
-      {/* Results */}
       {isSuccess && data && data.pivots.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-bottom-4 duration-500 fade-in">
           {data.pivots.map((pivot: PivotSuggestion, i: number) => (
             <Card
               key={i}
-              className="bg-card border-border pi-card-hover hover:border-primary/30 flex flex-col"
+              className="bg-card border-border hover:border-primary/30 flex flex-col transition-colors"
             >
               <CardHeader className="pb-2 pt-4">
                 <div className="flex items-start gap-2">
@@ -455,7 +570,7 @@ function AllReposDialog({
         </DialogHeader>
         <div className="space-y-3 mt-1">
           {repos.map((repo: any, i: number) => (
-            <RepoCard key={i} repo={repo} showGap />
+            <RepoCard key={i} repo={repo} />
           ))}
         </div>
       </DialogContent>
@@ -538,7 +653,7 @@ export function Results({ id }: { id: number }) {
         },
       });
       toast({ title: "PDF exported successfully" });
-    } catch (err) {
+    } catch {
       toast({ title: "PDF export failed", variant: "destructive" });
     } finally {
       setIsExportingPdf(false);
@@ -555,6 +670,7 @@ export function Results({ id }: { id: number }) {
           <Skeleton className="h-64 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }
@@ -634,7 +750,6 @@ export function Results({ id }: { id: number }) {
               Export PDF
             </Button>
           )}
-
           {isAnalyzed && (
             <Button
               variant={publishStatus?.published ? "default" : "outline"}
@@ -647,7 +762,6 @@ export function Results({ id }: { id: number }) {
               {publishStatus?.published ? "Published" : "Publish"}
             </Button>
           )}
-
           {!isProcessing && (
             <Button
               variant="outline"
@@ -736,16 +850,16 @@ export function Results({ id }: { id: number }) {
       {/* ---- Analyzed Results ---- */}
       {isAnalyzed && a && (
         <div className="space-y-6 animate-in slide-in-from-bottom-6 duration-500 fade-in">
-          {/* ---- AI Pivot Suggestions ---- */}
+          {/* ---- AI Pivot Suggestions (only for low scores) ---- */}
           <PivotSuggestionsPanel
             ideaId={id}
             feasibilityScore={a.feasibilityScore}
             uniquenessScore={a.uniquenessScore}
           />
 
-          {/* ---- 2-Panel: Radar + Competitive Repos ---- */}
+          {/* ---- Score Overview: Radar + Score Boxes ---- */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Market Viability (Radar) */}
+            {/* Market Viability Radar */}
             <Card className="bg-card border-border shadow-sm">
               <CardHeader className="border-b border-border pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -787,7 +901,13 @@ export function Results({ id }: { id: number }) {
                       Confidence
                     </p>
                     <p
-                      className={`text-2xl font-black mt-0.5 ${(a.overallScore ?? 0) >= 70 ? "text-emerald-500" : (a.overallScore ?? 0) >= 50 ? "text-amber-500" : "text-destructive"}`}
+                      className={`text-2xl font-black mt-0.5 ${
+                        (a.overallScore ?? 0) >= 70
+                          ? "text-emerald-500"
+                          : (a.overallScore ?? 0) >= 50
+                            ? "text-amber-500"
+                            : "text-destructive"
+                      }`}
                     >
                       {(a.overallScore ?? 0) >= 70
                         ? "High"
@@ -796,6 +916,27 @@ export function Results({ id }: { id: number }) {
                           : "Low"}
                     </p>
                   </div>
+                </div>
+                {/* Score breakdown */}
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  {[
+                    { label: "Uniqueness", val: a.uniquenessScore },
+                    { label: "Feasibility", val: a.feasibilityScore },
+                    { label: "Impact", val: a.impactScore },
+                    { label: "Innovation", val: a.innovationScore },
+                  ].map(({ label, val }) => (
+                    <div key={label} className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground font-medium">
+                          {label}
+                        </span>
+                        <span className={`font-bold ${scoreColor(val ?? 0)}`}>
+                          {val ?? 0}
+                        </span>
+                      </div>
+                      <Progress value={val ?? 0} className="h-1" />
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -811,7 +952,7 @@ export function Results({ id }: { id: number }) {
                       onClick={() => setShowAllRepos(true)}
                       className="ml-auto text-xs font-medium text-primary hover:underline flex items-center gap-1"
                     >
-                      View All ({a.githubRepos.length}){" "}
+                      View All ({a.githubRepos.length})
                       <ArrowRight className="w-3 h-3" />
                     </button>
                   )}
@@ -822,7 +963,7 @@ export function Results({ id }: { id: number }) {
                   a.githubRepos
                     .slice(0, 3)
                     .map((repo: any, i: number) => (
-                      <RepoCard key={i} repo={repo} showGap />
+                      <RepoCard key={i} repo={repo} />
                     ))
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">
@@ -842,8 +983,33 @@ export function Results({ id }: { id: number }) {
             />
           )}
 
-          {/* ---- Insights Tabs ---- */}
+          {/* ---- Full AI Analysis Report ---- */}
+          {a.verdictSummary && a.verdictSummary.trim().length > 20 && (
+            <Card className="bg-card border-border shadow-sm overflow-hidden">
+              <CardHeader className="border-b border-border pb-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <FileText className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  AI Analysis Report
+                  <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                    Clariva Engine
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-5 pb-6">
+                <MarkdownReport content={a.verdictSummary} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ---- Quick Insights Tabs ---- */}
           <Card className="bg-card border-border shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 border-b border-border">
+              <CardTitle className="text-sm font-semibold text-foreground">
+                Quick Insights
+              </CardTitle>
+            </CardHeader>
             {/* Tab Bar */}
             <div className="flex border-b border-border overflow-x-auto">
               {[
@@ -899,34 +1065,37 @@ export function Results({ id }: { id: number }) {
             </div>
 
             {/* Tab Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-5">
-              <div className="lg:col-span-3 p-5 space-y-3">
-                {insightTab !== "techStack" &&
-                  (() => {
-                    const items: any[] =
-                      insightTab === "strengths"
-                        ? (a.strengths ?? [])
-                        : insightTab === "weaknesses"
-                          ? (a.weaknesses ?? [])
-                          : insightTab === "risks"
-                            ? (a.risks ?? [])
-                            : (a.suggestions ?? []);
-                    const IconMap = {
-                      strengths: CheckCircle2,
-                      weaknesses: AlertTriangle,
-                      risks: XCircle,
-                      suggestions: Lightbulb,
-                    };
-                    const Icon = IconMap[insightTab as keyof typeof IconMap];
-                    const colorMap: Record<string, string> = {
-                      strengths: "text-emerald-500",
-                      weaknesses: "text-amber-500",
-                      risks: "text-destructive",
-                      suggestions: "text-primary",
-                    };
-                    return items.length > 0 ? (
-                      items.map((item: any, i: number) => (
-                        <div key={i} className="flex gap-3">
+            <div className="p-5 space-y-3">
+              {insightTab !== "techStack" &&
+                (() => {
+                  const items: any[] =
+                    insightTab === "strengths"
+                      ? (a.strengths ?? [])
+                      : insightTab === "weaknesses"
+                        ? (a.weaknesses ?? [])
+                        : insightTab === "risks"
+                          ? (a.risks ?? [])
+                          : (a.suggestions ?? []);
+                  const IconMap = {
+                    strengths: CheckCircle2,
+                    weaknesses: AlertTriangle,
+                    risks: XCircle,
+                    suggestions: Lightbulb,
+                  };
+                  const Icon = IconMap[insightTab as keyof typeof IconMap];
+                  const colorMap: Record<string, string> = {
+                    strengths: "text-emerald-500",
+                    weaknesses: "text-amber-500",
+                    risks: "text-destructive",
+                    suggestions: "text-primary",
+                  };
+                  return items.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {items.map((item: any, i: number) => (
+                        <div
+                          key={i}
+                          className="flex gap-3 p-3 rounded-lg bg-muted/30 border border-border"
+                        >
                           <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
                             <Icon
                               className={`w-3 h-3 ${colorMap[insightTab]}`}
@@ -941,52 +1110,33 @@ export function Results({ id }: { id: number }) {
                             </p>
                           </div>
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No items available.
-                      </p>
-                    );
-                  })()}
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No items available.
+                    </p>
+                  );
+                })()}
 
-                {insightTab === "techStack" && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {a.techStack && a.techStack.length > 0 ? (
-                      a.techStack.map((tech: string, i: number) => (
-                        <span
-                          key={i}
-                          className="px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-foreground border border-border"
-                        >
-                          {tech}
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No tech stack recommendations available.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Right decorative panel */}
-              <div
-                className="lg:col-span-2 hidden lg:flex items-end p-5 min-h-[200px]"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(79,70,229,0.15) 0%, rgba(99,102,241,0.25) 100%)",
-                  borderLeft: "1px solid hsl(var(--border))",
-                }}
-              >
-                <div>
-                  <p className="text-sm font-bold text-foreground leading-snug">
-                    {a.verdictSummary
-                      ? a.verdictSummary.slice(0, 100) +
-                        (a.verdictSummary.length > 100 ? "..." : "")
-                      : "AI engine verdict based on multi-dimensional market analysis."}
-                  </p>
+              {insightTab === "techStack" && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {a.techStack && a.techStack.length > 0 ? (
+                    a.techStack.map((tech: string, i: number) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-foreground border border-border"
+                      >
+                        {tech}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No tech stack recommendations available.
+                    </p>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           </Card>
 
@@ -1010,14 +1160,9 @@ export function Results({ id }: { id: number }) {
           )}
 
           {/* ---- Bottom Action Bar ---- */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Link href="/compare" className="flex-1">
-              <Button variant="outline" className="w-full gap-2">
-                Compare with Previous Version
-              </Button>
-            </Link>
+          <div className="flex justify-end pt-2">
             <Button
-              className="flex-1 gap-2"
+              className="gap-2"
               onClick={handleReanalyze}
               disabled={analyzeMutation.isPending}
               style={{
