@@ -11,6 +11,7 @@ export function setupWebSocket(app: Express) {
   const feedClients: Set<WebSocket> = new Set(); // global feed subscribers
   const challengeClients: Map<number, Set<WebSocket>> = new Map(); // challengeId -> Set of clients
   const collabConvoClients: Map<number, Set<WebSocket>> = new Map(); // offerId -> Set of clients
+  const userClients: Map<number, Set<WebSocket>> = new Map(); // userId -> Set of clients (notifications)
 
   (app as any).ws("/api/ws", (ws: any, req: Request) => {
     const userId = (req.session as any)?.userId;
@@ -150,6 +151,16 @@ export function setupWebSocket(app: Express) {
             collabConvoClients.get(offerId)?.delete(ws);
             subscribedCollabOfferIds.delete(offerId);
           }
+
+          // ─── Per-user notification channel ─────────────────────────────────
+        } else if (message.type === "subscribe_notifications") {
+          if (!userClients.has(userId)) {
+            userClients.set(userId, new Set());
+          }
+          userClients.get(userId)!.add(ws);
+          ws.send(JSON.stringify({ type: "subscribed_notifications" }));
+        } else if (message.type === "unsubscribe_notifications") {
+          userClients.get(userId)?.delete(ws);
         } else if (message.type === "ping") {
           ws.send(JSON.stringify({ type: "pong" }));
         }
@@ -167,6 +178,8 @@ export function setupWebSocket(app: Express) {
       for (const offerId of subscribedCollabOfferIds) {
         collabConvoClients.get(offerId)?.delete(ws);
       }
+      // Clean up notification channel
+      userClients.get(userId)?.delete(ws);
 
       if (currentTeamId) {
         wsClients.get(currentTeamId)?.delete(ws);
@@ -238,11 +251,22 @@ export function setupWebSocket(app: Express) {
     }
   }
 
+  function broadcastToUser(targetUserId: number, message: any) {
+    const clients = userClients.get(targetUserId);
+    if (clients) {
+      const data = JSON.stringify(message);
+      clients.forEach((client) => {
+        if (client.readyState === 1) client.send(data);
+      });
+    }
+  }
+
   // Register broadcast helpers globally so routes can use them
   (global as any).broadcastToTeam = broadcastToTeam;
   (global as any).broadcastToFeed = broadcastToFeed;
   (global as any).broadcastToChallenge = broadcastToChallenge;
   (global as any).broadcastToCollabConvo = broadcastToCollabConvo;
+  (global as any).broadcastToUser = broadcastToUser;
 }
 
 export default setupWebSocket;

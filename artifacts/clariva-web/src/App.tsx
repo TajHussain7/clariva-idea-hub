@@ -18,6 +18,7 @@ import { Teams } from "@/pages/teams";
 import { TeamDetail } from "@/pages/team-detail";
 import { Feed } from "@/pages/feed";
 import { Challenges } from "@/pages/challenges";
+import { Notifications } from "@/pages/notifications";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -96,6 +97,11 @@ function Router() {
       <Route path="/challenges">
         <Layout>
           <Challenges />
+        </Layout>
+      </Route>
+      <Route path="/notifications">
+        <Layout>
+          <Notifications />
         </Layout>
       </Route>
       <Route component={NotFound} />

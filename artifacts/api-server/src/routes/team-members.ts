@@ -13,6 +13,7 @@ import {
   requireTeamOwner,
 } from "../middlewares/team-auth.js";
 import { sendInvitationEmail } from "../lib/email.js";
+import { createNotification } from "../lib/notify.js";
 
 const router: IRouter = Router();
 
@@ -117,8 +118,7 @@ router.post(
       }
 
       // ── 4. Send invitation email ───────────────────────────────────────────
-      const frontendUrl =
-        process.env.FRONTEND_URL ?? "http://localhost:5173";
+      const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
       const isNewUser = !existingUser;
       // New users land on /auth?tab=register so the Create Account tab is pre-selected.
       // Existing users land on /auth so they can log in and then see the invitation.
@@ -138,6 +138,19 @@ router.post(
         console.error("[email] Failed to send invitation email:", err);
       });
 
+      // In-app notification for already-registered users only
+      if (existingUser) {
+        createNotification({
+          userId: existingUser.id,
+          type: "team_invite",
+          title: `${inviter?.name ?? "Someone"} invited you to join a team`,
+          body: `You've been invited to join "${team.name}". Visit the Teams page to accept.`,
+          targetPath: "/teams",
+          entityType: "team",
+          entityId: teamId,
+        });
+      }
+
       res.status(201).json(invitation);
     } catch (error) {
       console.error("[invite] Unexpected error:", error);
@@ -145,7 +158,6 @@ router.post(
     }
   },
 );
-
 
 // GET /teams/:id/invitations - List pending invitations
 router.get(
@@ -296,6 +308,23 @@ router.post(
         })
         .where(eq(teamInvitationsTable.id, invitationId))
         .returning();
+
+      // Notify the inviter that their invitee has joined
+      if (invitation.invitedBy) {
+        const [team] = await db
+          .select({ name: teamsTable.name })
+          .from(teamsTable)
+          .where(eq(teamsTable.id, invitation.teamId));
+        createNotification({
+          userId: invitation.invitedBy,
+          type: "team_joined",
+          title: `${user.name} joined your team`,
+          body: `${user.name} has accepted your invitation and joined "${team?.name ?? "the team"}".`,
+          targetPath: `/team/${invitation.teamId}`,
+          entityType: "team",
+          entityId: invitation.teamId,
+        });
+      }
 
       res.json(updatedInvitation);
     } catch (error) {

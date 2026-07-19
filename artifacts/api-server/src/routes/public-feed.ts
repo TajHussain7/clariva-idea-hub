@@ -10,6 +10,7 @@ import {
   analysesTable,
 } from "@workspace/db";
 import { eq, and, sql, desc, gt } from "drizzle-orm";
+import { createNotification } from "../lib/notify.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { logger } from "../lib/logger.js";
 
@@ -27,6 +28,18 @@ function maskIfAnonymous(row: {
     return { ...row, submitterName: "Anonymous", submitterId: null };
   }
   return row;
+}
+
+async function getPublishedIdeaTitle(
+  publicIdeaId: number,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ title: ideasTable.title })
+    .from(publicIdeasTable)
+    .innerJoin(ideasTable, eq(ideasTable.id, publicIdeasTable.ideaId))
+    .where(eq(publicIdeasTable.id, publicIdeaId));
+
+  return row?.title ?? null;
 }
 
 // ─── POST /feed/publish/:ideaId ───────────────────────────────────────────────
@@ -297,6 +310,25 @@ router.post(
       voteCount,
     });
 
+    // Notify idea owner when someone votes (not when unvoting, not self-vote)
+    if (voted && pub.userId !== userId) {
+      const [voter] = await db
+        .select({ name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId));
+      const ideaTitle =
+        (await getPublishedIdeaTitle(publicIdeaId)) ?? "your idea";
+      createNotification({
+        userId: pub.userId,
+        type: "vote",
+        title: `${voter?.name ?? "Someone"} voted on your idea`,
+        body: `"${ideaTitle}" received a new vote.`,
+        targetPath: "/feed",
+        entityType: "public_idea",
+        entityId: publicIdeaId,
+      });
+    }
+
     res.json({ voted, voteCount });
   },
 );
@@ -369,12 +401,27 @@ router.post(
       .where(eq(usersTable.id, userId));
 
     const fullComment = { ...comment, authorName: user?.name ?? "Unknown" };
+    const ideaTitle =
+      (await getPublishedIdeaTitle(publicIdeaId)) ?? "your idea";
 
     (global as any).broadcastToFeed?.({
       type: "comment_added",
       publicIdeaId,
       comment: fullComment,
     });
+
+    // Notify idea owner when someone comments (not self-comment)
+    if (pub.userId !== userId) {
+      createNotification({
+        userId: pub.userId,
+        type: "comment",
+        title: `${user?.name ?? "Someone"} commented on your idea`,
+        body: `"${ideaTitle}" — "${content.slice(0, 80)}${content.length > 80 ? "…" : ""}"`,
+        targetPath: "/feed",
+        entityType: "public_idea",
+        entityId: publicIdeaId,
+      });
+    }
 
     res.status(201).json(fullComment);
   },
@@ -512,6 +559,24 @@ router.post(
         .values({ publicIdeaId, offererId: userId, message })
         .returning();
 
+      const ideaTitle =
+        (await getPublishedIdeaTitle(publicIdeaId)) ?? "your idea";
+
+      // Notify idea owner about the incoming offer
+      const [offerer] = await db
+        .select({ name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId));
+      createNotification({
+        userId: pub.userId,
+        type: "offer_received",
+        title: `${offerer?.name ?? "Someone"} wants to collaborate`,
+        body: `"${ideaTitle}" — ${message.slice(0, 100)}${message.length > 100 ? "…" : ""}`,
+        targetPath: "/feed?tab=offers",
+        entityType: "offer",
+        entityId: offer.id,
+      });
+
       res.status(201).json(offer);
     } catch (err: any) {
       if (err?.code === "23505") {
@@ -581,6 +646,22 @@ router.patch(
       res.status(404).json({ error: "Offer not found" });
       return;
     }
+
+    // Notify the offerer their offer was accepted or declined
+    const ideaTitle =
+      (await getPublishedIdeaTitle(publicIdeaId)) ?? "your idea";
+    createNotification({
+      userId: updated.offererId,
+      type: status === "accepted" ? "offer_accepted" : "offer_declined",
+      title:
+        status === "accepted"
+          ? "Your collaboration offer was accepted!"
+          : "Your collaboration offer was declined",
+      body: `"${ideaTitle}" — the owner has ${status} your offer.`,
+      targetPath: "/feed?tab=offers",
+      entityType: "offer",
+      entityId: updated.id,
+    });
 
     res.json(updated);
   },
