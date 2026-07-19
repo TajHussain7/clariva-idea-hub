@@ -10,6 +10,7 @@ import teamPresenceRouter from "./team-presence.js";
 import publicFeedRouter from "./public-feed.js";
 import challengesRouter from "./challenges.js";
 import collabMessagesRouter from "./collab-messages.js";
+import notificationsRouter from "./notifications.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(teamPresenceRouter);
 router.use(publicFeedRouter);
 router.use(challengesRouter);
 router.use(collabMessagesRouter);
+router.use(notificationsRouter);
 
 export default router;

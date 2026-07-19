@@ -37,6 +37,7 @@ import { fetcher, useGetMe } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useSearch } from "wouter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -431,16 +432,14 @@ function ConversationModal({
   const isOwner = currentUserId === offer.ownerId;
   const otherName = isOwner ? offer.offererName : offer.ownerName;
 
-  const { data: loadedMessages, isLoading } = useQuery<CollabMessage[]>({
+  const { data, isLoading } = useQuery<CollabMessage[]>({
     queryKey: ["collab-messages", offer.id],
     queryFn: () => fetcher(`/api/collab/${offer.id}/messages`),
   });
 
   useEffect(() => {
-    if (loadedMessages) {
-      setMessages(loadedMessages);
-    }
-  }, [loadedMessages]);
+    if (data) setMessages(data);
+  }, [data]);
 
   const sendMutation = useMutation({
     mutationFn: (payload: {
@@ -1694,7 +1693,11 @@ type SortTab = "recent" | "votes" | "offers";
 export function Feed() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [sort, setSort] = useState<SortTab>("recent");
+  const search = useSearch();
+  const [sort, setSort] = useState<SortTab>(() => {
+    const tab = new URLSearchParams(search).get("tab");
+    return tab === "votes" || tab === "offers" ? tab : "recent";
+  });
   const [page, setPage] = useState(1);
   const [openCommentId, setOpenCommentId] = useState<number | null>(null);
   const [collaborateItem, setCollaborateItem] = useState<FeedItem | null>(null);

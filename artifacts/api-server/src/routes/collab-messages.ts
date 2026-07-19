@@ -11,6 +11,7 @@ import { eq, and, or, desc } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { requireAuth } from "../middlewares/auth.js";
 import { logger } from "../lib/logger.js";
+import { createNotification } from "../lib/notify.js";
 
 const router: IRouter = Router();
 
@@ -184,6 +185,31 @@ router.post(
       type: "new_collab_message",
       offerId,
       message: fullMessage,
+    });
+
+    // Notify the other party about the new message
+    const recipientId =
+      userId === parties.offererId ? parties.ownerId : parties.offererId;
+    const [pubIdea] = await db
+      .select({ title: ideasTable.title })
+      .from(publicIdeasTable)
+      .innerJoin(ideasTable, eq(ideasTable.id, publicIdeasTable.ideaId))
+      .where(eq(publicIdeasTable.id, parties.publicIdeaId));
+    createNotification({
+      userId: recipientId,
+      type: "collab_message",
+      title: `${fullMessage.senderName} sent you a message`,
+      body: `Re: "${pubIdea?.title ?? "your idea"}" — ${
+        inserted.contentType === "text"
+          ? inserted.content.slice(0, 80) +
+            (inserted.content.length > 80 ? "…" : "")
+          : inserted.contentType === "image"
+            ? "📷 Sent an image"
+            : `📎 Sent a file: ${inserted.fileName ?? "attachment"}`
+      }`,
+      targetPath: "/feed?tab=offers",
+      entityType: "offer",
+      entityId: offerId,
     });
 
     res.status(201).json(fullMessage);
