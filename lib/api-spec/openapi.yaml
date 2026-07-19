@@ -522,6 +522,17 @@ components:
         - title
         - desc
 
+    RepoGapAnalysis:
+      type: object
+      properties:
+        gap:
+          type: string
+        opportunity:
+          type: string
+      required:
+        - gap
+        - opportunity
+
     GithubRepo:
       type: object
       properties:
@@ -537,6 +548,8 @@ components:
           type: string
         url:
           type: string
+        gapAnalysis:
+          $ref: "#/components/schemas/RepoGapAnalysis"
       required:
         - name
         - org

@@ -88,8 +88,8 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">{team.name}</h1>
-        <p className="text-gray-600">{team.description}</p>
+        <h1 className="text-3xl font-bold text-foreground">{team.name}</h1>
+        <p className="text-muted-foreground">{team.description}</p>
       </div>
 
       <Tabs defaultValue="members" className="w-full">
@@ -118,13 +118,21 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
                 <Card key={member.id}>
                   <CardContent className="flex items-center justify-between py-4">
                     <div>
-                      <p className="font-medium">{member.user.name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-foreground">
+                        {member.user.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
                         {member.user.email}
                       </p>
                     </div>
-                    <div className="text-sm px-3 py-1 bg-gray-100 rounded">
-                      {member.role}
+                    <div
+                      className={`text-sm px-3 py-1 rounded font-medium border ${
+                        member.role === "owner"
+                          ? "bg-primary/10 text-primary border-primary/20"
+                          : "bg-muted text-muted-foreground border-border"
+                      }`}
+                    >
+                      {member.role === "owner" ? "Team Owner" : "Member"}
                     </div>
                   </CardContent>
                 </Card>
@@ -133,7 +141,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           ) : (
             <Card>
               <CardContent className="text-center py-8">
-                <p className="text-gray-600">No members yet</p>
+                <p className="text-muted-foreground">No members yet</p>
               </CardContent>
             </Card>
           )}
@@ -157,8 +165,10 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
                   }
                 >
                   <CardContent className="py-4">
-                    <p className="font-medium">{discussion.title}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="font-medium text-foreground">
+                      {discussion.title}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
                       Created on{" "}
                       {new Date(discussion.createdAt).toLocaleDateString()}
                     </p>
@@ -169,7 +179,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           ) : (
             <Card>
               <CardContent className="text-center py-8">
-                <p className="text-gray-600">No discussions yet</p>
+                <p className="text-muted-foreground">No discussions yet</p>
               </CardContent>
             </Card>
           )}
@@ -184,15 +194,21 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-3 h-3 rounded-full ${
-                          user.isOnline ? "bg-green-500" : "bg-gray-300"
+                          user.isOnline
+                            ? "bg-green-500"
+                            : "bg-muted-foreground/40"
                         }`}
                       />
                       <div>
-                        <p className="font-medium">{user.user.name}</p>
-                        <p className="text-sm text-gray-500">{user.location}</p>
+                        <p className="font-medium text-foreground">
+                          {user.user.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {user.location}
+                        </p>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {user.isOnline ? "Online now" : "Offline"}
                     </p>
                   </CardContent>
@@ -202,7 +218,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           ) : (
             <Card>
               <CardContent className="text-center py-8">
-                <p className="text-gray-600">No one is online</p>
+                <p className="text-muted-foreground">No one is online</p>
               </CardContent>
             </Card>
           )}

@@ -33,6 +33,11 @@ interface AIOutput {
   suggestions: Array<{ title: string; desc: string }>;
   techStack: string[];
   verdictSummary: string;
+  repoGapAnalysis: Array<{
+    repoName: string;
+    gap: string;
+    opportunity: string;
+  }>;
 }
 
 function buildSystemPrompt(): string {
@@ -55,7 +60,8 @@ Always respond with ONLY valid JSON — no markdown, no explanation, no code blo
   "risks": [{"title": "...", "desc": "..."}, ...],
   "suggestions": [{"title": "...", "desc": "..."}, ...],
   "techStack": ["...", ...],
-  "verdictSummary": "..."
+  "verdictSummary": "...",
+  "repoGapAnalysis": [{"repoName": "org/name", "gap": "...", "opportunity": "..."}, ...]
 }
 
 Scoring guidance:
@@ -65,7 +71,8 @@ Scoring guidance:
 - innovationScore: Does this use novel approaches or apply existing tech in a new way?
 - overallScore: Weighted average (uniqueness 25%, feasibility 25%, impact 30%, innovation 20%)
 
-Each array must have 2-4 items. techStack should list 4-8 realistic technologies. verdictSummary should be 2-3 sentences.`;
+Each array must have 2-4 items. techStack should list 4-8 realistic technologies. verdictSummary should be 2-3 sentences.
+repoGapAnalysis: For every GitHub competitor in the "Top competitors" list, provide one entry using the format "org/name". gap: 1-2 sentences on what the repository lacks, does poorly, or where it falls short for users. opportunity: 1-2 sentences on how the idea being analyzed can differentiate or improve on this specific competitor.`;
 }
 
 function buildUserPrompt(
@@ -76,9 +83,15 @@ function buildUserPrompt(
   githubData: Awaited<ReturnType<typeof fetchGithubData>>,
   wikiData: Awaited<ReturnType<typeof fetchWikipediaContext>>,
   ddgData: Awaited<ReturnType<typeof fetchDuckDuckGoContext>>,
-  ruleData: ReturnType<typeof runRuleEngine>
+  ruleData: ReturnType<typeof runRuleEngine>,
 ): string {
-  const complexityLabels = ["Very Simple", "Simple", "Medium", "Complex", "Very Complex"];
+  const complexityLabels = [
+    "Very Simple",
+    "Simple",
+    "Medium",
+    "Complex",
+    "Very Complex",
+  ];
   const compLabel = complexityLabels[complexity] ?? "Medium";
 
   const competitorSection =
@@ -87,7 +100,7 @@ function buildUserPrompt(
           .slice(0, 5)
           .map(
             (r) =>
-              `  - ${r.org}/${r.name} (${r.stars.toLocaleString()} stars, ${r.lang}): ${r.desc}`
+              `  - ${r.org}/${r.name} (${r.stars.toLocaleString()} stars, ${r.lang}): ${r.desc}`,
           )
           .join("\n")
       : "  No significant GitHub competitors found.";
@@ -96,10 +109,9 @@ function buildUserPrompt(
     ? `Wikipedia context: ${wikiData.summary.slice(0, 300)}\nMaturity signals: ${wikiData.maturitySignals.join(", ") || "None"}`
     : "Wikipedia: No direct domain article found.";
 
-  const ddgSection =
-    ddgData.abstractText
-      ? `Market awareness: ${ddgData.marketAwareness}\nContext: ${ddgData.abstractText.slice(0, 250)}`
-      : `Market awareness: ${ddgData.marketAwareness}`;
+  const ddgSection = ddgData.abstractText
+    ? `Market awareness: ${ddgData.marketAwareness}\nContext: ${ddgData.abstractText.slice(0, 250)}`
+    : `Market awareness: ${ddgData.marketAwareness}`;
 
   return `Analyze this startup idea:
 
@@ -141,23 +153,30 @@ function clampScore(val: unknown, fallback: number): number {
 function parseInsights(val: unknown): Array<{ title: string; desc: string }> {
   if (!Array.isArray(val)) return [];
   return val
-    .filter((item): item is { title: string; desc: string } =>
-      typeof item === "object" && item !== null &&
-      typeof (item as Record<string, unknown>).title === "string" &&
-      typeof (item as Record<string, unknown>).desc === "string"
+    .filter(
+      (item): item is { title: string; desc: string } =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).title === "string" &&
+        typeof (item as Record<string, unknown>).desc === "string",
     )
     .slice(0, 5);
 }
 
 function fallbackResult(
   githubData: Awaited<ReturnType<typeof fetchGithubData>>,
-  ruleData: ReturnType<typeof runRuleEngine>
+  ruleData: ReturnType<typeof runRuleEngine>,
 ): AnalysisResult {
-  const uniqueness = Math.max(10, 80 - Math.min(githubData.totalCount / 100, 50));
+  const uniqueness = Math.max(
+    10,
+    80 - Math.min(githubData.totalCount / 100, 50),
+  );
   const feasibility = Math.max(20, 75 - ruleData.complexityScore / 5);
   const impact = 65;
   const innovation = Math.min(95, 50 + ruleData.innovationKeywords.length * 5);
-  const overall = Math.round(uniqueness * 0.25 + feasibility * 0.25 + impact * 0.30 + innovation * 0.20);
+  const overall = Math.round(
+    uniqueness * 0.25 + feasibility * 0.25 + impact * 0.3 + innovation * 0.2,
+  );
 
   return {
     uniquenessScore: Math.round(uniqueness),
@@ -166,22 +185,38 @@ function fallbackResult(
     innovationScore: Math.round(innovation),
     overallScore: overall,
     strengths: [
-      { title: "Clear value proposition", desc: "The idea addresses a specific user need." },
-      { title: "Identifiable target market", desc: "The domain has a known audience." },
+      {
+        title: "Clear value proposition",
+        desc: "The idea addresses a specific user need.",
+      },
+      {
+        title: "Identifiable target market",
+        desc: "The domain has a known audience.",
+      },
     ],
     weaknesses: [
-      { title: "Analysis incomplete", desc: "Full AI analysis was unavailable — scores are estimated from metadata." },
+      {
+        title: "Analysis incomplete",
+        desc: "Full AI analysis was unavailable — scores are estimated from metadata.",
+      },
     ],
     risks: [
-      { title: "Market competition", desc: `${githubData.totalCount} GitHub projects found in this space.` },
+      {
+        title: "Market competition",
+        desc: `${githubData.totalCount} GitHub projects found in this space.`,
+      },
     ],
     suggestions: [
-      { title: "Re-run analysis", desc: "Try re-triggering analysis when AI capacity is available." },
+      {
+        title: "Re-run analysis",
+        desc: "Try re-triggering analysis when AI capacity is available.",
+      },
     ],
     githubRepos: githubData.repos,
     techStack: githubData.topLanguages.slice(0, 5),
     marketContext: "Estimated from available data sources.",
-    verdictSummary: "This idea shows potential. Full AI analysis was unavailable — scores are estimated from competitive data.",
+    verdictSummary:
+      "This idea shows potential. Full AI analysis was unavailable — scores are estimated from competitive data.",
   };
 }
 
@@ -189,7 +224,7 @@ export async function analyzeIdea(
   title: string,
   description: string,
   domain: string,
-  complexity: number
+  complexity: number,
 ): Promise<AnalysisResult> {
   const [githubData, wikiData, ddgData] = await Promise.all([
     fetchGithubData(title, description),
@@ -201,20 +236,33 @@ export async function analyzeIdea(
 
   const marketParts: string[] = [];
   if (wikiData.found) {
-    marketParts.push(`Wikipedia summary: ${wikiData.summary.slice(0, 600)} (Source URL: ${wikiData.pageUrl})`);
+    marketParts.push(
+      `Wikipedia summary: ${wikiData.summary.slice(0, 600)} (Source URL: ${wikiData.pageUrl})`,
+    );
   }
   if (ddgData.abstractText) {
-    marketParts.push(`DuckDuckGo abstract: ${ddgData.abstractText.slice(0, 400)}`);
+    marketParts.push(
+      `DuckDuckGo abstract: ${ddgData.abstractText.slice(0, 400)}`,
+    );
   }
   if (ddgData.relatedTopics.length > 0) {
-    marketParts.push(`Related search topics: ${ddgData.relatedTopics.slice(0, 6).join("; ")}`);
+    marketParts.push(
+      `Related search topics: ${ddgData.relatedTopics.slice(0, 6).join("; ")}`,
+    );
   }
-  const marketContext = marketParts.join(" | ") || "No external market context found.";
+  const marketContext =
+    marketParts.join(" | ") || "No external market context found.";
 
   try {
     const prompt = buildUserPrompt(
-      title, description, domain, complexity,
-      githubData, wikiData, ddgData, ruleData
+      title,
+      description,
+      domain,
+      complexity,
+      githubData,
+      wikiData,
+      ddgData,
+      ruleData,
     );
 
     logger.info({ title }, "Sending idea validation request to AI Router");
@@ -234,14 +282,18 @@ export async function analyzeIdea(
         slotUsed: result.slotUsed,
         attemptsTaken: result.attemptsTaken,
       },
-      "AI analysis response received from Router"
+      "AI analysis response received from Router",
     );
 
     const raw = result.content;
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       logger.warn("No JSON found in AI response, using fallback");
-      return { ...fallbackResult(githubData, ruleData), githubRepos: githubData.repos, marketContext };
+      return {
+        ...fallbackResult(githubData, ruleData),
+        githubRepos: githubData.repos,
+        marketContext,
+      };
     }
 
     const parsed = JSON.parse(jsonMatch[0]) as Partial<AIOutput>;
@@ -252,8 +304,40 @@ export async function analyzeIdea(
     const innovationScore = clampScore(parsed.innovationScore, 60);
     const overallScore = clampScore(
       parsed.overallScore,
-      Math.round(uniquenessScore * 0.25 + feasibilityScore * 0.25 + impactScore * 0.30 + innovationScore * 0.20)
+      Math.round(
+        uniquenessScore * 0.25 +
+          feasibilityScore * 0.25 +
+          impactScore * 0.3 +
+          innovationScore * 0.2,
+      ),
     );
+
+    // Merge AI-generated gap analysis back into each repo by matching org/name
+    const gapMap = new Map<string, { gap: string; opportunity: string }>();
+    if (Array.isArray(parsed.repoGapAnalysis)) {
+      for (const item of parsed.repoGapAnalysis as Array<{
+        repoName?: string;
+        gap?: string;
+        opportunity?: string;
+      }>) {
+        if (
+          typeof item?.repoName === "string" &&
+          typeof item?.gap === "string" &&
+          typeof item?.opportunity === "string"
+        ) {
+          gapMap.set(item.repoName.toLowerCase(), {
+            gap: item.gap,
+            opportunity: item.opportunity,
+          });
+        }
+      }
+    }
+
+    const reposWithGap = githubData.repos.map((repo) => {
+      const key = `${repo.org}/${repo.name}`.toLowerCase();
+      const gapAnalysis = gapMap.get(key);
+      return gapAnalysis ? { ...repo, gapAnalysis } : repo;
+    });
 
     return {
       uniquenessScore,
@@ -265,14 +349,19 @@ export async function analyzeIdea(
       weaknesses: parseInsights(parsed.weaknesses),
       risks: parseInsights(parsed.risks),
       suggestions: parseInsights(parsed.suggestions),
-      githubRepos: githubData.repos,
-      techStack: Array.isArray(parsed.techStack) ? (parsed.techStack as string[]).slice(0, 10) : githubData.topLanguages,
+      githubRepos: reposWithGap,
+      techStack: Array.isArray(parsed.techStack)
+        ? (parsed.techStack as string[]).slice(0, 10)
+        : githubData.topLanguages,
       marketContext,
-      verdictSummary: typeof parsed.verdictSummary === "string" ? parsed.verdictSummary : "",
+      verdictSummary:
+        typeof parsed.verdictSummary === "string" ? parsed.verdictSummary : "",
     };
   } catch (err) {
-    logger.error({ err }, "AI analysis failed across all slots in router, using fallback scores");
+    logger.error(
+      { err },
+      "AI analysis failed across all slots in router, using fallback scores",
+    );
     return { ...fallbackResult(githubData, ruleData), marketContext };
   }
 }
-
