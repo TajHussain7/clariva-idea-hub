@@ -129,7 +129,9 @@ function useFeedSocket(onMessage: (msg: any) => void) {
     ref.current = ws;
     ws.onopen = () => ws.send(JSON.stringify({ type: "subscribe_feed" }));
     ws.onmessage = (e) => {
-      try { onMessage(JSON.parse(e.data)); } catch {}
+      try {
+        onMessage(JSON.parse(e.data));
+      } catch {}
     };
     ws.onerror = () => {};
     return () => {
@@ -216,27 +218,48 @@ function parseInline(text: string): React.ReactNode[] {
       parts.push(text.slice(last, match.index));
     }
     if (match[1]) {
-      parts.push(<strong key={key++} className="font-bold">{match[2]}</strong>);
+      parts.push(
+        <strong key={key++} className="font-bold">
+          {match[2]}
+        </strong>,
+      );
     } else if (match[3]) {
-      parts.push(<em key={key++} className="italic">{match[4]}</em>);
+      parts.push(
+        <em key={key++} className="italic">
+          {match[4]}
+        </em>,
+      );
     } else if (match[5]) {
       parts.push(
-        <a key={key++} href={match[6]} target="_blank" rel="noreferrer"
-          className="text-primary underline underline-offset-2 hover:opacity-80">
+        <a
+          key={key++}
+          href={match[6]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary underline underline-offset-2 hover:opacity-80"
+        >
           {match[5]}
         </a>,
       );
     } else if (match[7]) {
       parts.push(
-        <a key={key++} href={match[7]} target="_blank" rel="noreferrer"
-          className="text-primary underline underline-offset-2 hover:opacity-80">
+        <a
+          key={key++}
+          href={match[7]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-primary underline underline-offset-2 hover:opacity-80"
+        >
           {match[7]}
         </a>,
       );
     } else if (match[8]) {
       parts.push(
-        <a key={key++} href={`mailto:${match[8]}`}
-          className="text-primary underline underline-offset-2 hover:opacity-80">
+        <a
+          key={key++}
+          href={`mailto:${match[8]}`}
+          className="text-primary underline underline-offset-2 hover:opacity-80"
+        >
           {match[8]}
         </a>,
       );
@@ -408,11 +431,16 @@ function ConversationModal({
   const isOwner = currentUserId === offer.ownerId;
   const otherName = isOwner ? offer.offererName : offer.ownerName;
 
-  const { isLoading } = useQuery<CollabMessage[]>({
+  const { data: loadedMessages, isLoading } = useQuery<CollabMessage[]>({
     queryKey: ["collab-messages", offer.id],
     queryFn: () => fetcher(`/api/collab/${offer.id}/messages`),
-    onSuccess: (data) => setMessages(data),
-  } as any);
+  });
+
+  useEffect(() => {
+    if (loadedMessages) {
+      setMessages(loadedMessages);
+    }
+  }, [loadedMessages]);
 
   const sendMutation = useMutation({
     mutationFn: (payload: {
@@ -657,7 +685,8 @@ function MyOffersTab({
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
       pending: "bg-amber-500/10 text-amber-600 border border-amber-500/30",
-      accepted: "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30",
+      accepted:
+        "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30",
       declined: "bg-red-500/10 text-red-500 border border-red-500/30",
     };
     return map[status] ?? map.pending;
@@ -951,7 +980,10 @@ function IdeaDetailCarousel({
               {item.voteCount}
             </button>
             <button
-              onClick={() => { onClose(); onToggleComments(item); }}
+              onClick={() => {
+                onClose();
+                onToggleComments(item);
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-primary transition-all"
             >
               <MessageCircle className="w-3 h-3" />
@@ -959,7 +991,10 @@ function IdeaDetailCarousel({
             </button>
             {!isOwner && (
               <button
-                onClick={() => { onClose(); onCollaborate(item); }}
+                onClick={() => {
+                  onClose();
+                  onCollaborate(item);
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border bg-card text-muted-foreground hover:border-emerald-400 hover:text-emerald-500 transition-all"
               >
                 <Users className="w-3 h-3" />
@@ -1018,11 +1053,17 @@ function buildSlides(item: FeedItem, analysis: Analysis | null) {
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <ThumbsUp className="w-4 h-4" />
-            <span className="font-semibold text-foreground">{item.voteCount}</span> votes
+            <span className="font-semibold text-foreground">
+              {item.voteCount}
+            </span>{" "}
+            votes
           </span>
           <span className="flex items-center gap-1.5">
             <MessageCircle className="w-4 h-4" />
-            <span className="font-semibold text-foreground">{item.commentCount}</span> comments
+            <span className="font-semibold text-foreground">
+              {item.commentCount}
+            </span>{" "}
+            comments
           </span>
         </div>
         {!analysis && (
@@ -1062,10 +1103,26 @@ function buildSlides(item: FeedItem, analysis: Analysis | null) {
             </div>
           )}
           <div className="space-y-3">
-            <ScoreBar label="Uniqueness" score={analysis.uniquenessScore} color="bg-violet-500" />
-            <ScoreBar label="Feasibility" score={analysis.feasibilityScore} color="bg-blue-500" />
-            <ScoreBar label="Impact" score={analysis.impactScore} color="bg-emerald-500" />
-            <ScoreBar label="Innovation" score={analysis.innovationScore} color="bg-orange-500" />
+            <ScoreBar
+              label="Uniqueness"
+              score={analysis.uniquenessScore}
+              color="bg-violet-500"
+            />
+            <ScoreBar
+              label="Feasibility"
+              score={analysis.feasibilityScore}
+              color="bg-blue-500"
+            />
+            <ScoreBar
+              label="Impact"
+              score={analysis.impactScore}
+              color="bg-emerald-500"
+            />
+            <ScoreBar
+              label="Innovation"
+              score={analysis.innovationScore}
+              color="bg-orange-500"
+            />
           </div>
         </div>
       ),
@@ -1082,10 +1139,15 @@ function buildSlides(item: FeedItem, analysis: Analysis | null) {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-emerald-500" />
-                <h4 className="font-semibold text-sm text-foreground">Strengths</h4>
+                <h4 className="font-semibold text-sm text-foreground">
+                  Strengths
+                </h4>
               </div>
               {analysis.strengths.map((s, i) => (
-                <div key={i} className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3">
+                <div
+                  key={i}
+                  className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3"
+                >
                   <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                     {s.title}
                   </p>
@@ -1100,10 +1162,15 @@ function buildSlides(item: FeedItem, analysis: Analysis | null) {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <XCircle className="w-4 h-4 text-red-500" />
-                <h4 className="font-semibold text-sm text-foreground">Weaknesses</h4>
+                <h4 className="font-semibold text-sm text-foreground">
+                  Weaknesses
+                </h4>
               </div>
               {analysis.weaknesses.map((w, i) => (
-                <div key={i} className="rounded-lg bg-red-500/5 border border-red-500/20 p-3">
+                <div
+                  key={i}
+                  className="rounded-lg bg-red-500/5 border border-red-500/20 p-3"
+                >
                   <p className="text-xs font-semibold text-red-700 dark:text-red-400">
                     {w.title}
                   </p>
@@ -1132,7 +1199,10 @@ function buildSlides(item: FeedItem, analysis: Analysis | null) {
                 <h4 className="font-semibold text-sm text-foreground">Risks</h4>
               </div>
               {analysis.risks.map((r, i) => (
-                <div key={i} className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+                <div
+                  key={i}
+                  className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3"
+                >
                   <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
                     {r.title}
                   </p>
@@ -1147,11 +1217,18 @@ function buildSlides(item: FeedItem, analysis: Analysis | null) {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Lightbulb className="w-4 h-4 text-primary" />
-                <h4 className="font-semibold text-sm text-foreground">Suggestions</h4>
+                <h4 className="font-semibold text-sm text-foreground">
+                  Suggestions
+                </h4>
               </div>
               {analysis.suggestions.map((s, i) => (
-                <div key={i} className="rounded-lg bg-primary/5 border border-primary/20 p-3">
-                  <p className="text-xs font-semibold text-primary">{s.title}</p>
+                <div
+                  key={i}
+                  className="rounded-lg bg-primary/5 border border-primary/20 p-3"
+                >
+                  <p className="text-xs font-semibold text-primary">
+                    {s.title}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     {s.desc}
                   </p>
@@ -1172,7 +1249,9 @@ function buildSlides(item: FeedItem, analysis: Analysis | null) {
         <div className="space-y-5">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />
-            <h3 className="font-bold text-lg text-foreground">Market Intelligence</h3>
+            <h3 className="font-bold text-lg text-foreground">
+              Market Intelligence
+            </h3>
           </div>
           {analysis.verdictSummary && (
             <div className="rounded-xl bg-primary/5 border border-primary/20 p-4">
@@ -1207,7 +1286,9 @@ function buildSlides(item: FeedItem, analysis: Analysis | null) {
         <div className="space-y-5">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-primary" />
-            <h3 className="font-bold text-lg text-foreground">Tech Ecosystem</h3>
+            <h3 className="font-bold text-lg text-foreground">
+              Tech Ecosystem
+            </h3>
           </div>
           {analysis.techStack?.length ? (
             <div className="space-y-2">
@@ -1274,7 +1355,9 @@ function InlineComments({ item }: { item: FeedItem }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
-  const [reactions, setReactions] = useState<Map<number, "like" | "dislike" | null>>(new Map());
+  const [reactions, setReactions] = useState<
+    Map<number, "like" | "dislike" | null>
+  >(new Map());
 
   const { data: comments = [], isLoading } = useQuery<Comment[]>({
     queryKey: ["feed-comments", item.id],
@@ -1390,7 +1473,11 @@ function InlineComments({ item }: { item: FeedItem }) {
           placeholder="Write a comment…"
           className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-border bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
-        <Button type="submit" size="sm" disabled={!text.trim() || addMutation.isPending}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={!text.trim() || addMutation.isPending}
+        >
           {addMutation.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
@@ -1560,13 +1647,19 @@ function CollaborateModal({
       <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-base">Offer to Collaborate</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
         <p className="text-sm text-muted-foreground">
           Send a message to the author of{" "}
-          <span className="font-medium text-foreground">"{item.ideaTitle}"</span>.
+          <span className="font-medium text-foreground">
+            "{item.ideaTitle}"
+          </span>
+          .
         </p>
         <textarea
           value={message}
@@ -1576,12 +1669,16 @@ function CollaborateModal({
           className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
         />
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
           <Button
             onClick={() => mutation.mutate(message.trim())}
             disabled={!message.trim() || mutation.isPending}
           >
-            {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            {mutation.isPending && (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            )}
             Send Offer
           </Button>
         </div>
@@ -1602,8 +1699,12 @@ export function Feed() {
   const [openCommentId, setOpenCommentId] = useState<number | null>(null);
   const [collaborateItem, setCollaborateItem] = useState<FeedItem | null>(null);
   const [detailItem, setDetailItem] = useState<FeedItem | null>(null);
-  const [conversationOffer, setConversationOffer] = useState<MyOffer | null>(null);
-  const [offerFilterPublicIdeaId, setOfferFilterPublicIdeaId] = useState<number | null>(null);
+  const [conversationOffer, setConversationOffer] = useState<MyOffer | null>(
+    null,
+  );
+  const [offerFilterPublicIdeaId, setOfferFilterPublicIdeaId] = useState<
+    number | null
+  >(null);
 
   const { data: me } = useGetMe();
   const currentUserId = me?.id ?? null;
@@ -1632,7 +1733,9 @@ export function Feed() {
             ? {
                 ...item,
                 hasVoted: !item.hasVoted,
-                voteCount: item.hasVoted ? item.voteCount - 1 : item.voteCount + 1,
+                voteCount: item.hasVoted
+                  ? item.voteCount - 1
+                  : item.voteCount + 1,
               }
             : item,
         ),
@@ -1651,8 +1754,13 @@ export function Feed() {
 
   useFeedSocket((msg) => {
     if (
-      ["vote_updated", "idea_published", "idea_unpublished", "comment_added", "comment_deleted"]
-        .includes(msg.type)
+      [
+        "vote_updated",
+        "idea_published",
+        "idea_unpublished",
+        "comment_added",
+        "comment_deleted",
+      ].includes(msg.type)
     ) {
       queryClient.invalidateQueries({ queryKey: ["feed"] });
       queryClient.invalidateQueries({ queryKey: ["feed-trending"] });
@@ -1672,9 +1780,21 @@ export function Feed() {
   };
 
   const tabs: { key: SortTab; label: string; icon: React.ReactNode }[] = [
-    { key: "recent", label: "Most Recent", icon: <Clock className="w-3.5 h-3.5" /> },
-    { key: "votes", label: "Most Voted", icon: <TrendingUp className="w-3.5 h-3.5" /> },
-    { key: "offers", label: "Collaboration / Offers", icon: <Users className="w-3.5 h-3.5" /> },
+    {
+      key: "recent",
+      label: "Most Recent",
+      icon: <Clock className="w-3.5 h-3.5" />,
+    },
+    {
+      key: "votes",
+      label: "Most Voted",
+      icon: <TrendingUp className="w-3.5 h-3.5" />,
+    },
+    {
+      key: "offers",
+      label: "Collaboration / Offers",
+      icon: <Users className="w-3.5 h-3.5" />,
+    },
   ];
 
   return (
@@ -1711,7 +1831,9 @@ export function Feed() {
                   <ThumbsUp className="w-3 h-3" />
                   {item.voteCount}
                   <span className="mx-1">·</span>
-                  <span className="uppercase font-medium">{item.ideaDomain}</span>
+                  <span className="uppercase font-medium">
+                    {item.ideaDomain}
+                  </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1 opacity-70">
                   Tap to view details
@@ -1786,10 +1908,20 @@ export function Feed() {
           ))}
           {(feed.length === 20 || page > 1) && (
             <div className="flex justify-center gap-2 pt-2">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
                 Previous
               </Button>
-              <Button variant="outline" size="sm" disabled={feed.length < 20} onClick={() => setPage((p) => p + 1)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={feed.length < 20}
+                onClick={() => setPage((p) => p + 1)}
+              >
                 Next
               </Button>
             </div>
