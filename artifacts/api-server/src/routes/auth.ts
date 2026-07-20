@@ -104,7 +104,7 @@ router.post(
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    
+
     // Generate verification token (expires in 24 hours)
     const verificationToken = crypto.randomBytes(32).toString("hex");
     const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -122,10 +122,13 @@ router.post(
       })
       .returning();
 
-    // Send verification email
-    const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+    // Send verification email. Prefer explicit FRONTEND_URL, then CORS_ORIGIN, then localhost for dev.
+    const frontendUrl =
+      process.env.FRONTEND_URL ??
+      process.env.CORS_ORIGIN?.split(",")[0] ??
+      "http://localhost:5173";
     const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
-    
+
     sendVerificationEmail({
       toEmail: user.email,
       userName: user.name,
@@ -136,7 +139,8 @@ router.post(
 
     // Don't create session immediately - require email verification first
     res.status(201).json({
-      message: "Registration successful! Please check your email to verify your account.",
+      message:
+        "Registration successful! Please check your email to verify your account.",
       emailSent: true,
     });
   },
@@ -169,8 +173,9 @@ router.post("/auth/login", loginLimiter, async (req, res): Promise<void> => {
 
   // Check if email is verified
   if (!user.emailVerified) {
-    res.status(403).json({ 
-      error: "Please verify your email address before logging in. Check your inbox for the verification link.",
+    res.status(403).json({
+      error:
+        "Please verify your email address before logging in. Check your inbox for the verification link.",
       emailNotVerified: true,
     });
     return;
@@ -210,8 +215,15 @@ router.post("/auth/verify-email", async (req, res): Promise<void> => {
   }
 
   // Check if token expired
-  if (user.verificationTokenExpiry && user.verificationTokenExpiry < new Date()) {
-    res.status(400).json({ error: "Verification token has expired. Please request a new one." });
+  if (
+    user.verificationTokenExpiry &&
+    user.verificationTokenExpiry < new Date()
+  ) {
+    res
+      .status(400)
+      .json({
+        error: "Verification token has expired. Please request a new one.",
+      });
     return;
   }
 
@@ -244,7 +256,10 @@ router.post("/auth/resend-verification", async (req, res): Promise<void> => {
 
   if (!user) {
     // Don't reveal if email exists or not
-    res.json({ message: "If an account with that email exists and is unverified, a verification email has been sent." });
+    res.json({
+      message:
+        "If an account with that email exists and is unverified, a verification email has been sent.",
+    });
     return;
   }
 
@@ -265,10 +280,13 @@ router.post("/auth/resend-verification", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, user.id));
 
-  // Send verification email
-  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+  // Send verification email. Prefer explicit FRONTEND_URL, then CORS_ORIGIN, then localhost for dev.
+  const frontendUrl =
+    process.env.FRONTEND_URL ??
+    process.env.CORS_ORIGIN?.split(",")[0] ??
+    "http://localhost:5173";
   const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
-  
+
   sendVerificationEmail({
     toEmail: user.email,
     userName: user.name,
@@ -296,7 +314,10 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
 
   if (!user) {
     // Don't reveal if email exists or not (security best practice)
-    res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+    res.json({
+      message:
+        "If an account with that email exists, a password reset link has been sent.",
+    });
     return;
   }
 
@@ -312,10 +333,13 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, user.id));
 
-  // Send reset email
-  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+  // Send reset email. Prefer explicit FRONTEND_URL, then CORS_ORIGIN, then localhost for dev.
+  const frontendUrl =
+    process.env.FRONTEND_URL ??
+    process.env.CORS_ORIGIN?.split(",")[0] ??
+    "http://localhost:5173";
   const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
-  
+
   sendPasswordResetEmail({
     toEmail: user.email,
     userName: user.name,
@@ -324,7 +348,10 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     console.error("[email] Failed to send password reset email:", err);
   });
 
-  res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+  res.json({
+    message:
+      "If an account with that email exists, a password reset link has been sent.",
+  });
 });
 
 // Reset password with token
@@ -352,8 +379,13 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
   }
 
   // Check if token expired
-  if (user.verificationTokenExpiry && user.verificationTokenExpiry < new Date()) {
-    res.status(400).json({ error: "Reset token has expired. Please request a new one." });
+  if (
+    user.verificationTokenExpiry &&
+    user.verificationTokenExpiry < new Date()
+  ) {
+    res
+      .status(400)
+      .json({ error: "Reset token has expired. Please request a new one." });
     return;
   }
 
@@ -370,7 +402,10 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, user.id));
 
-  res.json({ message: "Password reset successfully! You can now log in with your new password." });
+  res.json({
+    message:
+      "Password reset successfully! You can now log in with your new password.",
+  });
 });
 
 router.get("/auth/me", async (req, res): Promise<void> => {

@@ -31,10 +31,10 @@ function parseSender(fromStr: string): Sender {
 
 const sender = parseSender(FROM);
 
-// Allow overriding the HTTP API sender email and reply-to via env vars.
-// Fall back to the parsed `FROM` values when not provided.
+// Allow overriding the HTTP API sender email via env vars.
+// Only use reply-to when explicitly set in environment (don't hardcode a default).
 const HTTP_SENDER_EMAIL = process.env.SMTP_FROM_EMAIL ?? sender.email;
-const REPLY_TO_EMAIL = process.env.SMTP_REPLY_TO ?? "tajamalkhan720@gmail.com";
+const REPLY_TO_EMAIL = process.env.SMTP_REPLY_TO; // optional
 // ─── Transport Mode Detection ────────────────────────────────────────────────
 
 let smtpTransporter: nodemailer.Transporter | null = null;
@@ -363,6 +363,15 @@ export async function sendInvitationEmail(
 
   if (useHttpApi) {
     try {
+      const bodyPayload: any = {
+        sender: { name: sender.name, email: HTTP_SENDER_EMAIL },
+        to: [{ email: toEmail }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      };
+      if (REPLY_TO_EMAIL) bodyPayload.replyTo = { email: REPLY_TO_EMAIL };
+
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
@@ -370,14 +379,7 @@ export async function sendInvitationEmail(
           "content-type": "application/json",
           "api-key": BREVO_API_KEY,
         },
-        body: JSON.stringify({
-          sender: { name: sender.name, email: HTTP_SENDER_EMAIL },
-          replyTo: { email: REPLY_TO_EMAIL },
-          to: [{ email: toEmail }],
-          subject,
-          htmlContent: html,
-          textContent: text,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (!response.ok) {
@@ -400,14 +402,16 @@ export async function sendInvitationEmail(
     }
   } else if (smtpTransporter) {
     try {
-      await smtpTransporter.sendMail({
+      const mailOptions: any = {
         from: FROM,
-        replyTo: REPLY_TO_EMAIL,
         to: toEmail,
         subject,
         text,
         html,
-      });
+      };
+      if (REPLY_TO_EMAIL) mailOptions.replyTo = REPLY_TO_EMAIL;
+
+      await smtpTransporter.sendMail(mailOptions);
       logger.info(
         { to: toEmail, subject },
         "Invitation email sent via Brevo SMTP Relay",
