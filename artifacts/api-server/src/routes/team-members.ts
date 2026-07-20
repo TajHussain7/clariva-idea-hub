@@ -15,6 +15,23 @@ import {
 import { sendInvitationEmail } from "../lib/email.js";
 import { createNotification } from "../lib/notify.js";
 
+function resolveFrontendUrl(): string {
+  const configuredUrl =
+    process.env.FRONTEND_URL?.trim() ??
+    process.env.CORS_ORIGIN?.split(",")[0]?.trim();
+
+  if (process.env.NODE_ENV === "production") {
+    if (!configuredUrl) {
+      throw new Error(
+        "FRONTEND_URL or CORS_ORIGIN must be configured in production",
+      );
+    }
+    return configuredUrl;
+  }
+
+  return configuredUrl ?? "http://localhost:5173";
+}
+
 const router: IRouter = Router();
 
 // POST /teams/:id/members/invite - Invite user by email
@@ -118,7 +135,7 @@ router.post(
       }
 
       // ── 4. Send invitation email ───────────────────────────────────────────
-      const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+      const frontendUrl = resolveFrontendUrl();
       const isNewUser = !existingUser;
       // New users land on /auth?tab=register so the Create Account tab is pre-selected.
       // Existing users land on /auth so they can log in and then see the invitation.
