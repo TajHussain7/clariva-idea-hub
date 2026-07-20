@@ -23,6 +23,7 @@ function now() {
 
 // ─── GET /challenges/active ──────────────────────────────────────────────────
 // Returns the currently active challenge (startsAt <= now <= endsAt).
+// Includes extension info if challenge was extended.
 // Returns 404 when there is no active challenge.
 router.get(
   "/challenges/active",
@@ -47,7 +48,20 @@ router.get(
       return;
     }
 
-    res.json(challenge);
+    // Include extension info in response
+    const response = {
+      ...challenge,
+      isExtended: challenge.status === "extended",
+      extensionInfo:
+        challenge.status === "extended"
+          ? {
+              originalEndsAt: challenge.originalEndsAt,
+              extensionCount: challenge.extensionCount,
+            }
+          : null,
+    };
+
+    res.json(response);
   },
 );
 
@@ -121,6 +135,7 @@ router.post(
 
 // ─── GET /challenges/:id/submissions ─────────────────────────────────────────
 // List all submissions for a challenge with vote counts and submitter name.
+// Includes isOwnSubmission flag to identify user's own submission.
 router.get(
   "/challenges/:id/submissions",
   requireAuth,
@@ -166,6 +181,7 @@ router.get(
           WHERE cv.submission_id = ${challengeSubmissionsTable.id}
             AND cv.user_id = ${userId}
         )`,
+        isOwnSubmission: sql<boolean>`${challengeSubmissionsTable.userId} = ${userId}`,
       })
       .from(challengeSubmissionsTable)
       .innerJoin(
@@ -277,6 +293,7 @@ router.post(
 
 // ─── POST /challenges/:id/submissions/:submissionId/vote ─────────────────────
 // Toggle vote on a challenge submission. Returns { voted: boolean, voteCount: number }.
+// Prevents users from voting on their own submissions.
 router.post(
   "/challenges/:id/submissions/:submissionId/vote",
   requireAuth,
@@ -304,6 +321,12 @@ router.post(
 
     if (!submission) {
       res.status(404).json({ error: "Submission not found" });
+      return;
+    }
+
+    // Prevent self-voting
+    if (submission.userId === userId) {
+      res.status(403).json({ error: "You cannot vote on your own submission" });
       return;
     }
 
@@ -367,6 +390,7 @@ router.post(
 
 // ─── GET /challenges/:id/winner ───────────────────────────────────────────────
 // Returns the winning submission (most votes) after the challenge has ended.
+// Returns null if no winner calculated yet or no submissions.
 // On first call after challenge ends, awards a 'challenge_winner' badge to the
 // winner's user if they don't already have one for this challenge.
 router.get(
@@ -391,6 +415,12 @@ router.get(
 
     if (now() <= challenge.endsAt) {
       res.status(400).json({ error: "Challenge has not ended yet" });
+      return;
+    }
+
+    // If winner not calculated yet, return null
+    if (!challenge.winnerCalculated) {
+      res.json({ winner: null, message: "Winner calculation pending" });
       return;
     }
 
@@ -431,13 +461,13 @@ router.get(
       .limit(1);
 
     if (submissions.length === 0) {
-      res.status(404).json({ error: "No submissions for this challenge" });
+      res.json({ winner: null, message: "No submissions for this challenge" });
       return;
     }
 
     const winner = submissions[0];
 
-    // Award badge on first call if not already awarded
+    // Check if badge already awarded
     const [existingBadge] = await db
       .select()
       .from(userBadgesTable)
@@ -464,6 +494,41 @@ router.get(
     }
 
     res.json({ winner, badgeAwarded });
+  },
+);
+
+// ─── POST /admin/challenges/trigger-worker ───────────────────────────────────
+// Manually trigger the challenge worker cycle (admin only, for testing/emergency)
+router.post(
+  "/admin/challenges/trigger-worker",
+  requireAuth,
+  requireAdmin,
+  async (_req, res): Promise<void> => {
+    try {
+      logger.info("Manual worker trigger requested by admin");
+
+      // Import worker dynamically to avoid circular dependencies
+      const { runWorkerCycle, getWorkerStats } = await import(
+        "../workers/challenge-worker.js"
+      );
+
+      await runWorkerCycle();
+      const stats = getWorkerStats();
+
+      logger.info({ stats }, "Manual worker cycle completed");
+
+      res.json({
+        success: true,
+        message: "Worker cycle triggered successfully",
+        stats,
+      });
+    } catch (error) {
+      logger.error({ error }, "Manual worker trigger failed");
+      res.status(500).json({
+        error: "Worker cycle failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   },
 );
 
