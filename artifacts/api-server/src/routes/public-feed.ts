@@ -19,11 +19,13 @@ const router: IRouter = Router();
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Strip user identity when the idea is posted anonymously */
-function maskIfAnonymous(row: {
-  isAnonymous: boolean;
-  submitterName: string | null;
-  submitterId: number | null;
-}) {
+function maskIfAnonymous<
+  T extends {
+    isAnonymous: boolean;
+    submitterName: string | null;
+    submitterId: number | null;
+  },
+>(row: T): T {
   if (row.isAnonymous) {
     return { ...row, submitterName: "Anonymous", submitterId: null };
   }
@@ -697,5 +699,112 @@ router.get(
     res.json(analysis ?? null);
   },
 );
+
+// ─── POST /feed/search ────────────────────────────────────────────────────────
+// AI-powered search that analyzes the query and returns matching ideas.
+router.post("/feed/search", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
+  const query = (req.body?.query as string | undefined)?.trim();
+
+  if (!query) {
+    res.status(400).json({ error: "query is required" });
+    return;
+  }
+
+  if (query.length < 2) {
+    res.status(400).json({ error: "Query must be at least 2 characters" });
+    return;
+  }
+
+  try {
+    // Convert query to lowercase for case-insensitive search
+    const searchTerm = `%${query.toLowerCase()}%`;
+
+    const voteCountExpr = sql<number>`(
+      SELECT COUNT(*)::int FROM idea_votes iv WHERE iv.public_idea_id = ${publicIdeasTable.id}
+    )`;
+    const hasVotedExpr = sql<boolean>`EXISTS (
+      SELECT 1 FROM idea_votes iv WHERE iv.public_idea_id = ${publicIdeasTable.id} AND iv.user_id = ${userId}
+    )`;
+    const commentCountExpr = sql<number>`(
+      SELECT COUNT(*)::int FROM public_idea_comments pic WHERE pic.public_idea_id = ${publicIdeasTable.id}
+    )`;
+
+    // Search in title, description, and domain
+    const rows = await db
+      .select({
+        id: publicIdeasTable.id,
+        ideaId: publicIdeasTable.ideaId,
+        isAnonymous: publicIdeasTable.isAnonymous,
+        publishedAt: publicIdeasTable.publishedAt,
+        submitterId: publicIdeasTable.userId,
+        submitterName: usersTable.name,
+        ideaTitle: ideasTable.title,
+        ideaDomain: ideasTable.domain,
+        ideaDescription: ideasTable.description,
+        voteCount: voteCountExpr,
+        hasVoted: hasVotedExpr,
+        commentCount: commentCountExpr,
+      })
+      .from(publicIdeasTable)
+      .innerJoin(ideasTable, eq(ideasTable.id, publicIdeasTable.ideaId))
+      .innerJoin(usersTable, eq(usersTable.id, publicIdeasTable.userId))
+      .where(
+        sql`(
+          LOWER(${ideasTable.title}) LIKE ${searchTerm}
+          OR LOWER(${ideasTable.description}) LIKE ${searchTerm}
+          OR LOWER(${ideasTable.domain}) LIKE ${searchTerm}
+        )`,
+      )
+      .orderBy(desc(publicIdeasTable.publishedAt))
+      .limit(20);
+
+    // Calculate relevance score based on match quality
+    const results = rows.map((row) => {
+      const titleMatch = row.ideaTitle
+        .toLowerCase()
+        .includes(query.toLowerCase());
+      const domainMatch = row.ideaDomain
+        .toLowerCase()
+        .includes(query.toLowerCase());
+      const descriptionMatch = row.ideaDescription
+        .toLowerCase()
+        .includes(query.toLowerCase());
+
+      // Higher score for title matches, then domain, then description
+      const relevanceScore =
+        (titleMatch ? 3 : 0) +
+        (domainMatch ? 2 : 0) +
+        (descriptionMatch ? 1 : 0);
+
+      return { ...maskIfAnonymous(row), relevanceScore };
+    });
+
+    // Sort by relevance score (higher first), then by vote count
+    results.sort((a, b) => {
+      if (b.relevanceScore !== a.relevanceScore) {
+        return b.relevanceScore - a.relevanceScore;
+      }
+      return b.voteCount - a.voteCount;
+    });
+
+    // Remove relevance score from final results
+    const finalResults = results.map(({ relevanceScore, ...rest }) => rest);
+
+    logger.info(
+      { query, resultsCount: finalResults.length },
+      "Feed search completed",
+    );
+
+    res.json({
+      query,
+      results: finalResults,
+      count: finalResults.length,
+    });
+  } catch (error) {
+    logger.error({ error, query }, "Feed search failed");
+    res.status(500).json({ error: "Search failed" });
+  }
+});
 
 export default router;
