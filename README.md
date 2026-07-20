@@ -50,6 +50,20 @@ User Idea  →  [ Clariva Analysis Engine ]  →  Structured Report
 
 Clariva is a full-stack SaaS web application built for entrepreneurs, product teams, and startup founders who need fast, objective feedback on their ideas before investing time or capital. Users submit ideas and receive structured AI analysis covering feasibility, uniqueness, market potential, risk factors, and strategic recommendations.
 
+### Key Highlights
+
+<div align="center">
+
+|      ⚡ Fast Analysis       |   🎯 Structured Scoring   |      🤝 Team Collaboration       |     🏆 Community Challenges      |
+| :-------------------------: | :-----------------------: | :------------------------------: | :------------------------------: |
+| Results in under 60 seconds | 5-dimension AI evaluation | Real-time presence & discussions | Weekly AI-generated competitions |
+
+|  📊 Idea Comparison   |   🔄 Pivot Suggestions    |    📄 PDF Export     |    🌐 Public Feed    |
+| :-------------------: | :-----------------------: | :------------------: | :------------------: |
+| Side-by-side analysis | AI-generated alternatives | Professional reports | Share ideas publicly |
+
+</div>
+
 ---
 
 ## 🎯 Project Purpose
@@ -373,6 +387,37 @@ Clariva features a **fully automated Weekly Challenge System** that maintains co
 
 ---
 
+## 💡 Why Idea Validation Matters
+
+The majority of startups fail not because of poor execution, but because they solve the wrong problem or build something nobody wants. Clariva addresses this critical gap:
+
+```
+Without Clariva:
+  Entrepreneur: "I'll spend 6 months and $50k building this..."
+  6 Months Later: "Nobody wants this. Market already saturated."
+  Result: ❌ Time wasted, capital burned, opportunity cost
+
+With Clariva:
+  Entrepreneur: "Let me validate this idea first..."
+  5 Minutes Later: "78% similar solutions exist. Pivot to focus on X instead."
+  Result: ✅ Informed decision, saved resources, better direction
+```
+
+**Key Statistics:**
+
+- **42%** of startups fail due to no market need (CB Insights)
+- **23%** fail due to being outcompeted
+- **14%** fail due to poor product
+
+Clariva helps you avoid being part of these statistics by providing:
+
+- **Early validation** before you invest significant resources
+- **Competitive intelligence** to understand the landscape
+- **Actionable pivots** when your initial direction needs adjustment
+- **Data-driven insights** instead of gut feelings
+
+---
+
 ## 🔍 Gap Filling
 
 Most existing idea validation tools fall into one of two categories:
@@ -481,70 +526,102 @@ Clariva/
 
 ---
 
-### Prerequisites
+## 🔌 API Reference
 
-- Node.js v18+
-- pnpm v9+
+### Authentication Endpoints
 
-### 1. Clone & Install
+| Method | Endpoint             | Description                 |
+| ------ | -------------------- | --------------------------- |
+| `POST` | `/api/auth/register` | Register new user account   |
+| `POST` | `/api/auth/login`    | Login with email & password |
+| `POST` | `/api/auth/logout`   | Logout and clear session    |
+| `GET`  | `/api/auth/me`       | Get current user profile    |
 
-```bash
-git clone <repository-url>
-cd Creative-Idea-Hub
-pnpm install
-```
+### Idea Management
 
-### 2. Configure Environment
+| Method   | Endpoint                  | Description                  |
+| -------- | ------------------------- | ---------------------------- |
+| `POST`   | `/api/ideas`              | Submit new idea for analysis |
+| `GET`    | `/api/ideas`              | Get all user ideas           |
+| `GET`    | `/api/ideas/:id`          | Get specific idea details    |
+| `PATCH`  | `/api/ideas/:id`          | Update idea                  |
+| `DELETE` | `/api/ideas/:id`          | Delete idea                  |
+| `GET`    | `/api/ideas/:id/analysis` | Get analysis results         |
+| `POST`   | `/api/ideas/:id/pivot`    | Generate pivot suggestions   |
+| `GET`    | `/api/ideas/insights`     | Get aggregated AI insights   |
 
-```bash
-cp .env.example .env
-```
+### Challenge System
 
-Fill in `.env` with your actual values:
+| Method | Endpoint                               | Description                  |
+| ------ | -------------------------------------- | ---------------------------- |
+| `GET`  | `/api/challenges`                      | Get all challenges           |
+| `GET`  | `/api/challenges/active`               | Get current active challenge |
+| `POST` | `/api/challenges/:id/submit`           | Submit idea to challenge     |
+| `POST` | `/api/challenges/submissions/:id/vote` | Vote for submission          |
+| `GET`  | `/api/challenges/:id/leaderboard`      | Get challenge leaderboard    |
 
-- `DATABASE_URL` — PostgreSQL connection string (Supabase or local)
-- `SESSION_SECRET` — A long, random secret string
-- `CORS_ORIGIN` — `http://localhost:5173` for local development
-- `AI_INTEGRATIONS_OPENROUTER_API_KEY` — Your OpenRouter API key
+### Team Collaboration
 
-### 3. Push Database Schema
+| Method | Endpoint                     | Description           |
+| ------ | ---------------------------- | --------------------- |
+| `POST` | `/api/teams`                 | Create new team       |
+| `GET`  | `/api/teams`                 | Get user's teams      |
+| `POST` | `/api/teams/:id/invite`      | Invite member to team |
+| `POST` | `/api/teams/:id/ideas`       | Share idea with team  |
+| `GET`  | `/api/teams/:id/discussions` | Get team discussions  |
 
-```bash
-pnpm db:push
-```
+### WebSocket Events
 
-### 4. Start Development Servers
+Connect to `ws://localhost:3000/ws` (or `wss://your-domain.com/ws` in production).
 
-```bash
-pnpm dev
-```
-
-- **Frontend**: [http://localhost:5173](http://localhost:5173)
-- **Backend API**: [http://localhost:3000](http://localhost:3000)
+| Event                | Payload                     | Description                 |
+| -------------------- | --------------------------- | --------------------------- |
+| `challenge:created`  | `{ challenge }`             | New challenge started       |
+| `challenge:extended` | `{ challenge }`             | Challenge deadline extended |
+| `challenge:winner`   | `{ challengeId, winnerId }` | Winner announced            |
+| `challenge:vote`     | `{ submissionId, votes }`   | Vote count updated          |
+| `presence:update`    | `{ teamId, users }`         | Team member online status   |
 
 ---
 
-## ☁️ Deployment Configuration
+## 🤝 Contributing
 
-| Service      | Platform | Required Environment Variables                                                                                                                  |
-| ------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend** | Vercel   | `VITE_API_URL=https://your-render-api.onrender.com`                                                                                             |
-| **Backend**  | Render   | `DATABASE_URL`, `SESSION_SECRET`, `CORS_ORIGIN=https://your-vercel-url.vercel.app`, `NODE_ENV=production`, `AI_INTEGRATIONS_OPENROUTER_API_KEY` |
+Contributions, issues, and feature requests are welcome!
 
-> **Important:** `CORS_ORIGIN` on Render **must** match your Vercel frontend URL exactly. Without it, session cookies will be blocked and all authenticated requests return 401.
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feat/my-feature`
+3. Commit your changes: `git commit -m 'feat: add my feature'`
+4. Push to the branch: `git push origin feat/my-feature`
+5. Open a Pull Request
 
 ---
 
 ## 👥 Contributors
 
-| Name                | Email                        | Role                                                 |
-| ------------------- | ---------------------------- | ---------------------------------------------------- |
-| **Tajamal Hussain** | tajamalhussain1004@gmail.com | Team Lead, Backend Developer, Version/Docker Manager |
-| **Manir Ahmad**     | munirahmed135652@gmail.com   | Documentation & Project Manager                      |
-| **Abdul Wahab**     | aistudent1483@gmail.com      | Frontend Developer                                   |
+<div align="center">
+
+| Name                | Role                                                 | Contact                         |
+| ------------------- | ---------------------------------------------------- | ------------------------------- |
+| **Tajamal Hussain** | Team Lead, Backend Developer, Version/Docker Manager | 📧 tajamalhussain1004@gmail.com |
+| **Manir Ahmad**     | Documentation & Project Manager                      | 📧 munirahmed135652@gmail.com   |
+| **Abdul Wahab**     | Frontend Developer                                   | 📧 aistudent1483@gmail.com      |
+
+</div>
 
 ---
 
 ## 📄 License
 
 This project is private and not licensed for public distribution.
+
+---
+
+<div align="center">
+
+**Built with ❤️ to help entrepreneurs validate ideas faster.**
+
+_If Clariva helped you, give it a ⭐ on GitHub!_
+
+**[🚀 Try Clariva Now](https://clariva-idea-hub-clariva-web.vercel.app/)**
+
+</div>
