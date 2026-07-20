@@ -31,6 +31,10 @@ function parseSender(fromStr: string): Sender {
 
 const sender = parseSender(FROM);
 
+// Allow overriding the HTTP API sender email and reply-to via env vars.
+// Fall back to the parsed `FROM` values when not provided.
+const HTTP_SENDER_EMAIL = process.env.SMTP_FROM_EMAIL ?? sender.email;
+const REPLY_TO_EMAIL = process.env.SMTP_REPLY_TO ?? "tajamalkhan720@gmail.com";
 // ─── Transport Mode Detection ────────────────────────────────────────────────
 
 let smtpTransporter: nodemailer.Transporter | null = null;
@@ -367,7 +371,8 @@ export async function sendInvitationEmail(
           "api-key": BREVO_API_KEY,
         },
         body: JSON.stringify({
-          sender,
+          sender: { name: sender.name, email: HTTP_SENDER_EMAIL },
+          replyTo: { email: REPLY_TO_EMAIL },
           to: [{ email: toEmail }],
           subject,
           htmlContent: html,
@@ -397,6 +402,7 @@ export async function sendInvitationEmail(
     try {
       await smtpTransporter.sendMail({
         from: FROM,
+        replyTo: REPLY_TO_EMAIL,
         to: toEmail,
         subject,
         text,
@@ -471,7 +477,8 @@ export async function sendVerificationEmail(
           "api-key": BREVO_API_KEY,
         },
         body: JSON.stringify({
-          sender,
+          sender: { name: sender.name, email: HTTP_SENDER_EMAIL },
+          replyTo: { email: REPLY_TO_EMAIL },
           to: [{ email: toEmail }],
           subject,
           htmlContent: html,
@@ -501,6 +508,7 @@ export async function sendVerificationEmail(
     try {
       await smtpTransporter.sendMail({
         from: FROM,
+        replyTo: REPLY_TO_EMAIL,
         to: toEmail,
         subject,
         text,
@@ -575,7 +583,8 @@ export async function sendPasswordResetEmail(
           "api-key": BREVO_API_KEY,
         },
         body: JSON.stringify({
-          sender,
+          sender: { name: sender.name, email: HTTP_SENDER_EMAIL },
+          replyTo: { email: REPLY_TO_EMAIL },
           to: [{ email: toEmail }],
           subject,
           htmlContent: html,
@@ -605,6 +614,7 @@ export async function sendPasswordResetEmail(
     try {
       await smtpTransporter.sendMail({
         from: FROM,
+        replyTo: REPLY_TO_EMAIL,
         to: toEmail,
         subject,
         text,
