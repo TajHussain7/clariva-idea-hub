@@ -387,7 +387,7 @@ function RichTextInput({
           rows={2}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Type a message… (supports **bold**, *italic*, ## heading, links)"
+          placeholder="Type a message…"
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
