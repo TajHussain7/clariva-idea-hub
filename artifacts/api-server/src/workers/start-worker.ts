@@ -1,5 +1,6 @@
 import "../load-env.js";
 import cron from "node-cron";
+import type { ScheduledTask } from "node-cron";
 import { runWorkerCycle, getWorkerStats } from "./challenge-worker.js";
 import { logger } from "../lib/logger.js";
 import {
@@ -11,12 +12,13 @@ import {
 const WORKER_NAME = "challenge-automation-worker";
 
 // Get configuration
-const CHALLENGE_CREATION_SCHEDULE = WORKER_SCHEDULE_CONFIG.challengeCreationSchedule;
+const CHALLENGE_CREATION_SCHEDULE =
+  WORKER_SCHEDULE_CONFIG.challengeCreationSchedule;
 const MONITORING_INTERVAL_MS = getMonitoringIntervalMs();
 const TIMEZONE = WORKER_SCHEDULE_CONFIG.timezone;
 const SCHEDULE_DESCRIPTION = WORKER_SCHEDULE_CONFIG.scheduleDescription;
 
-let cronTask: cron.ScheduledTask | null = null;
+let cronTask: ScheduledTask | null = null;
 let monitoringIntervalId: NodeJS.Timeout | null = null;
 let isShuttingDown = false;
 
@@ -28,7 +30,7 @@ async function startWorker(): Promise<void> {
   if (!validateCronSchedule(CHALLENGE_CREATION_SCHEDULE)) {
     logger.error(
       { schedule: CHALLENGE_CREATION_SCHEDULE },
-      "Invalid cron schedule format. Please check worker-schedule.ts configuration."
+      "Invalid cron schedule format. Please check worker-schedule.ts configuration.",
     );
     throw new Error(`Invalid cron schedule: ${CHALLENGE_CREATION_SCHEDULE}`);
   }
@@ -41,7 +43,7 @@ async function startWorker(): Promise<void> {
       timezone: TIMEZONE,
       monitoringIntervalHours: MONITORING_INTERVAL_MS / (60 * 60 * 1000),
     },
-    "Starting challenge automation worker with cron scheduling"
+    "Starting challenge automation worker with cron scheduling",
   );
 
   // Run immediately on startup to handle any pending tasks
@@ -55,7 +57,9 @@ async function startWorker(): Promise<void> {
     CHALLENGE_CREATION_SCHEDULE,
     async () => {
       if (isShuttingDown) {
-        logger.info("Worker is shutting down, skipping scheduled challenge creation");
+        logger.info(
+          "Worker is shutting down, skipping scheduled challenge creation",
+        );
         return;
       }
 
@@ -65,7 +69,7 @@ async function startWorker(): Promise<void> {
           description: SCHEDULE_DESCRIPTION,
           timezone: TIMEZONE,
         },
-        "🎯 Scheduled challenge creation triggered"
+        "🎯 Scheduled challenge creation triggered",
       );
 
       try {
@@ -77,9 +81,8 @@ async function startWorker(): Promise<void> {
       }
     },
     {
-      scheduled: true,
       timezone: TIMEZONE,
-    }
+    },
   );
 
   logger.info(
@@ -88,7 +91,7 @@ async function startWorker(): Promise<void> {
       description: SCHEDULE_DESCRIPTION,
       timezone: TIMEZONE,
     },
-    "✅ Cron job scheduled for weekly challenge creation"
+    "✅ Cron job scheduled for weekly challenge creation",
   );
 
   // Also run monitoring checks periodically for:
@@ -117,7 +120,7 @@ async function startWorker(): Promise<void> {
       challengeSchedule: `${SCHEDULE_DESCRIPTION} (${TIMEZONE})`,
       monitoringInterval: `Every ${MONITORING_INTERVAL_MS / (60 * 60 * 1000)} hour(s)`,
     },
-    "🚀 Worker started successfully with dual scheduling (cron + interval monitoring)"
+    "🚀 Worker started successfully with dual scheduling (cron + interval monitoring)",
   );
 }
 
@@ -147,10 +150,7 @@ async function shutdown(signal: string): Promise<void> {
   }
 
   const stats = getWorkerStats();
-  logger.info(
-    { stats, workerName: WORKER_NAME },
-    "Worker stopped gracefully"
-  );
+  logger.info({ stats, workerName: WORKER_NAME }, "Worker stopped gracefully");
 
   process.exit(0);
 }
@@ -161,7 +161,7 @@ async function shutdown(signal: string): Promise<void> {
 function handleUncaughtError(error: Error, origin: string): void {
   logger.error(
     { error, origin, workerName: WORKER_NAME },
-    "Uncaught error in worker process"
+    "Uncaught error in worker process",
   );
   // Don't exit - let worker continue
 }
@@ -172,11 +172,10 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 // Register error handlers
 process.on("uncaughtException", (error) =>
-  handleUncaughtError(error, "uncaughtException")
+  handleUncaughtError(error, "uncaughtException"),
 );
 process.on("unhandledRejection", (reason) => {
-  const error =
-    reason instanceof Error ? reason : new Error(String(reason));
+  const error = reason instanceof Error ? reason : new Error(String(reason));
   handleUncaughtError(error, "unhandledRejection");
 });
 
