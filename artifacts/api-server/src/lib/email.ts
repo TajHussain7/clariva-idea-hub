@@ -43,23 +43,25 @@ if (BREVO_API_KEY) {
 
   logger.info(
     { length: len, prefix, hasAsterisks },
-    "Diagnosing BREVO_API_KEY configuration..."
+    "Diagnosing BREVO_API_KEY configuration...",
   );
 
   if (hasAsterisks) {
     logger.error(
-      "BREVO_API_KEY contains asterisks ('*'). You likely copied a masked key from the Brevo dashboard. Please generate a NEW API Key and copy it immediately before closing the dialog."
+      "BREVO_API_KEY contains asterisks ('*'). You likely copied a masked key from the Brevo dashboard. Please generate a NEW API Key and copy it immediately before closing the dialog.",
     );
   }
 
   if (BREVO_API_KEY.startsWith("xkeysib-")) {
     useHttpApi = true;
-    logger.info("Brevo v3 API Key detected. Using HTTP API for email delivery.");
+    logger.info(
+      "Brevo v3 API Key detected. Using HTTP API for email delivery.",
+    );
   } else {
     // If it starts with xsmtpsib- or is any other string, fallback to SMTP using the key as password.
     logger.info(
       { user: sender.email },
-      `Brevo SMTP Key or custom key detected (${prefix}...). Initializing Nodemailer SMTP relay.`
+      `Brevo SMTP Key or custom key detected (${prefix}...). Initializing Nodemailer SMTP relay.`,
     );
     smtpTransporter = nodemailer.createTransport({
       host: "smtp-relay.brevo.com",
@@ -72,7 +74,9 @@ if (BREVO_API_KEY) {
     });
   }
 } else {
-  logger.warn("BREVO_API_KEY is not configured. Emails will be logged to the console.");
+  logger.warn(
+    "BREVO_API_KEY is not configured. Emails will be logged to the console.",
+  );
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -322,29 +326,6 @@ function buildPasswordResetHtml(payload: PasswordResetEmailPayload): string {
 </body>
 </html>`;
 }
-                </tr>
-              </table>
-              <p style="margin:24px 0 0;color:#64748b;font-size:12px;line-height:1.6;">
-                Or copy this link into your browser:<br/>
-                <a href="${inviteLink}" style="color:#57dffe;word-break:break-all;">${inviteLink}</a>
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:20px 40px;border-top:1px solid rgba(255,255,255,0.06);">
-              <p style="margin:0;color:#475569;font-size:12px;line-height:1.6;">
-                This invitation was sent by ${inviterName} via Clariva.
-                If you weren't expecting this, you can safely ignore this email.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -381,7 +362,7 @@ export async function sendInvitationEmail(
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
-          "accept": "application/json",
+          accept: "application/json",
           "content-type": "application/json",
           "api-key": BREVO_API_KEY,
         },
@@ -396,12 +377,20 @@ export async function sendInvitationEmail(
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Brevo API responded with status ${response.status}: ${errorText}`);
+        throw new Error(
+          `Brevo API responded with status ${response.status}: ${errorText}`,
+        );
       }
 
-      logger.info({ to: toEmail, subject }, "Invitation email sent via Brevo HTTP API");
+      logger.info(
+        { to: toEmail, subject },
+        "Invitation email sent via Brevo HTTP API",
+      );
     } catch (error) {
-      logger.error({ error, to: toEmail }, "Failed to send invitation email via Brevo HTTP API");
+      logger.error(
+        { error, to: toEmail },
+        "Failed to send invitation email via Brevo HTTP API",
+      );
       throw error;
     }
   } else if (smtpTransporter) {
@@ -413,18 +402,30 @@ export async function sendInvitationEmail(
         text,
         html,
       });
-      logger.info({ to: toEmail, subject }, "Invitation email sent via Brevo SMTP Relay");
+      logger.info(
+        { to: toEmail, subject },
+        "Invitation email sent via Brevo SMTP Relay",
+      );
     } catch (error) {
-      logger.error({ error, to: toEmail }, "Failed to send invitation email via Brevo SMTP Relay");
+      logger.error(
+        { error, to: toEmail },
+        "Failed to send invitation email via Brevo SMTP Relay",
+      );
       throw error;
     }
   } else {
-    logger.warn("Brevo configuration is present but transport mode is undetermined. Logging to console.");
-    console.log("\n========== INVITATION EMAIL (undetermined transport fallback) ==========");
+    logger.warn(
+      "Brevo configuration is present but transport mode is undetermined. Logging to console.",
+    );
+    console.log(
+      "\n========== INVITATION EMAIL (undetermined transport fallback) ==========",
+    );
     console.log(`To:      ${toEmail}`);
     console.log(`Subject: ${subject}`);
     console.log(`Link:    ${inviteLink}`);
-    console.log("========================================================================\n");
+    console.log(
+      "========================================================================\n",
+    );
   }
 }
 
@@ -448,11 +449,15 @@ export async function sendVerificationEmail(
       { to: toEmail, subject, verificationLink },
       "[Email – console fallback] Verification email",
     );
-    console.log("\n========== VERIFICATION EMAIL (console fallback) ==========");
+    console.log(
+      "\n========== VERIFICATION EMAIL (console fallback) ==========",
+    );
     console.log(`To:      ${toEmail}`);
     console.log(`Subject: ${subject}`);
     console.log(`Link:    ${verificationLink}`);
-    console.log("===========================================================\n");
+    console.log(
+      "===========================================================\n",
+    );
     return;
   }
 
@@ -461,7 +466,7 @@ export async function sendVerificationEmail(
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
-          "accept": "application/json",
+          accept: "application/json",
           "content-type": "application/json",
           "api-key": BREVO_API_KEY,
         },
@@ -476,12 +481,20 @@ export async function sendVerificationEmail(
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Brevo API responded with status ${response.status}: ${errorText}`);
+        throw new Error(
+          `Brevo API responded with status ${response.status}: ${errorText}`,
+        );
       }
 
-      logger.info({ to: toEmail, subject }, "Verification email sent via Brevo HTTP API");
+      logger.info(
+        { to: toEmail, subject },
+        "Verification email sent via Brevo HTTP API",
+      );
     } catch (error) {
-      logger.error({ error, to: toEmail }, "Failed to send verification email via Brevo HTTP API");
+      logger.error(
+        { error, to: toEmail },
+        "Failed to send verification email via Brevo HTTP API",
+      );
       throw error;
     }
   } else if (smtpTransporter) {
@@ -493,18 +506,30 @@ export async function sendVerificationEmail(
         text,
         html,
       });
-      logger.info({ to: toEmail, subject }, "Verification email sent via Brevo SMTP Relay");
+      logger.info(
+        { to: toEmail, subject },
+        "Verification email sent via Brevo SMTP Relay",
+      );
     } catch (error) {
-      logger.error({ error, to: toEmail }, "Failed to send verification email via Brevo SMTP Relay");
+      logger.error(
+        { error, to: toEmail },
+        "Failed to send verification email via Brevo SMTP Relay",
+      );
       throw error;
     }
   } else {
-    logger.warn("Brevo configuration is present but transport mode is undetermined. Logging to console.");
-    console.log("\n========== VERIFICATION EMAIL (undetermined transport fallback) ==========");
+    logger.warn(
+      "Brevo configuration is present but transport mode is undetermined. Logging to console.",
+    );
+    console.log(
+      "\n========== VERIFICATION EMAIL (undetermined transport fallback) ==========",
+    );
     console.log(`To:      ${toEmail}`);
     console.log(`Subject: ${subject}`);
     console.log(`Link:    ${verificationLink}`);
-    console.log("==========================================================================\n");
+    console.log(
+      "==========================================================================\n",
+    );
   }
 }
 
@@ -528,11 +553,15 @@ export async function sendPasswordResetEmail(
       { to: toEmail, subject, resetLink },
       "[Email – console fallback] Password reset email",
     );
-    console.log("\n========== PASSWORD RESET EMAIL (console fallback) ==========");
+    console.log(
+      "\n========== PASSWORD RESET EMAIL (console fallback) ==========",
+    );
     console.log(`To:      ${toEmail}`);
     console.log(`Subject: ${subject}`);
     console.log(`Link:    ${resetLink}`);
-    console.log("=============================================================\n");
+    console.log(
+      "=============================================================\n",
+    );
     return;
   }
 
@@ -541,7 +570,7 @@ export async function sendPasswordResetEmail(
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
-          "accept": "application/json",
+          accept: "application/json",
           "content-type": "application/json",
           "api-key": BREVO_API_KEY,
         },
@@ -556,12 +585,20 @@ export async function sendPasswordResetEmail(
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Brevo API responded with status ${response.status}: ${errorText}`);
+        throw new Error(
+          `Brevo API responded with status ${response.status}: ${errorText}`,
+        );
       }
 
-      logger.info({ to: toEmail, subject }, "Password reset email sent via Brevo HTTP API");
+      logger.info(
+        { to: toEmail, subject },
+        "Password reset email sent via Brevo HTTP API",
+      );
     } catch (error) {
-      logger.error({ error, to: toEmail }, "Failed to send password reset email via Brevo HTTP API");
+      logger.error(
+        { error, to: toEmail },
+        "Failed to send password reset email via Brevo HTTP API",
+      );
       throw error;
     }
   } else if (smtpTransporter) {
@@ -573,17 +610,29 @@ export async function sendPasswordResetEmail(
         text,
         html,
       });
-      logger.info({ to: toEmail, subject }, "Password reset email sent via Brevo SMTP Relay");
+      logger.info(
+        { to: toEmail, subject },
+        "Password reset email sent via Brevo SMTP Relay",
+      );
     } catch (error) {
-      logger.error({ error, to: toEmail }, "Failed to send password reset email via Brevo SMTP Relay");
+      logger.error(
+        { error, to: toEmail },
+        "Failed to send password reset email via Brevo SMTP Relay",
+      );
       throw error;
     }
   } else {
-    logger.warn("Brevo configuration is present but transport mode is undetermined. Logging to console.");
-    console.log("\n========== PASSWORD RESET EMAIL (undetermined transport fallback) ==========");
+    logger.warn(
+      "Brevo configuration is present but transport mode is undetermined. Logging to console.",
+    );
+    console.log(
+      "\n========== PASSWORD RESET EMAIL (undetermined transport fallback) ==========",
+    );
     console.log(`To:      ${toEmail}`);
     console.log(`Subject: ${subject}`);
     console.log(`Link:    ${resetLink}`);
-    console.log("============================================================================\n");
+    console.log(
+      "============================================================================\n",
+    );
   }
 }
