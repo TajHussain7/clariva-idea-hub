@@ -16,13 +16,33 @@ export interface UserPresence {
 }
 
 export function useTeamPresence(teamId: number) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const handlePresenceUpdate = (event: CustomEvent) => {
+      const { teamId: updatedTeamId } = event.detail || {};
+      if (updatedTeamId === teamId) {
+        queryClient.invalidateQueries({
+          queryKey: ["teams", teamId, "presence"],
+        });
+      }
+    };
+
+    window.addEventListener("presence-update", handlePresenceUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener("presence-update", handlePresenceUpdate as EventListener);
+    };
+  }, [teamId, queryClient]);
+
   return useQuery({
     queryKey: ["teams", teamId, "presence"],
     queryFn: async () => {
       return fetcher<UserPresence[]>(`/api/teams/${teamId}/presence`);
     },
     enabled: !!teamId,
-    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchInterval: 10000, // Refetch every 10 seconds to ensure fresh data
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 }
 
@@ -54,6 +74,7 @@ export function useWebSocket(teamId: number | null, enabled = true) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!enabled || !teamId) return;
@@ -66,9 +87,14 @@ export function useWebSocket(teamId: number | null, enabled = true) {
         wsRef.current = new WebSocket(wsUrl);
 
         wsRef.current.onopen = () => {
+          console.log("[WebSocket] Connected");
           reconnectAttempts.current = 0;
+          
           // Subscribe to team
-          wsRef.current?.send(JSON.stringify({ type: "subscribe", teamId }));
+          if (wsRef.current && teamId) {
+            wsRef.current.send(JSON.stringify({ type: "subscribe", teamId }));
+            console.log("[WebSocket] Subscribed to team:", teamId);
+          }
 
           // Send heartbeat every 30 seconds
           const heartbeatInterval = setInterval(() => {
@@ -83,11 +109,20 @@ export function useWebSocket(teamId: number | null, enabled = true) {
         wsRef.current.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data);
+            console.log("[WebSocket] Message received:", message);
+            
             if (message.type === "presence_update") {
               // Invalidate presence query to refetch
+              queryClient.invalidateQueries({
+                queryKey: ["teams", teamId, "presence"],
+              });
+              
+              // Also dispatch custom event for other listeners
               window.dispatchEvent(
                 new CustomEvent("presence-update", { detail: message }),
               );
+            } else if (message.type === "subscribed") {
+              console.log("[WebSocket] Subscription confirmed for team:", message.teamId);
             }
           } catch (error) {
             console.error("[WebSocket] Error parsing message:", error);
@@ -99,6 +134,7 @@ export function useWebSocket(teamId: number | null, enabled = true) {
         };
 
         wsRef.current.onclose = () => {
+          console.log("[WebSocket] Connection closed");
           wsRef.current = null;
 
           if (reconnectAttempts.current < maxReconnectAttempts) {
@@ -107,7 +143,10 @@ export function useWebSocket(teamId: number | null, enabled = true) {
               1000 * Math.pow(2, reconnectAttempts.current),
               30000,
             );
+            console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
             setTimeout(connectWebSocket, delay);
+          } else {
+            console.error("[WebSocket] Max reconnection attempts reached");
           }
         };
       } catch (error) {
@@ -121,9 +160,10 @@ export function useWebSocket(teamId: number | null, enabled = true) {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: "unsubscribe" }));
         wsRef.current.close();
+        console.log("[WebSocket] Disconnected and unsubscribed");
       }
     };
-  }, [teamId, enabled]);
+  }, [teamId, enabled, queryClient]);
 
   return wsRef;
 }
