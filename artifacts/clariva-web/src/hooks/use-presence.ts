@@ -43,6 +43,10 @@ export function useTeamPresence(teamId: number) {
     enabled: !!teamId,
     refetchInterval: 10000, // Refetch every 10 seconds to ensure fresh data
     staleTime: 5000, // Consider data stale after 5 seconds
+    retry: false, // Don't retry if presence fails - it's not critical
+    onError: (error) => {
+      console.warn("[Presence] Failed to fetch team presence:", error);
+    },
   });
 }
 
@@ -67,6 +71,11 @@ export function useUpdatePresence() {
         });
       }
     },
+    onError: (error) => {
+      // Silently fail - presence is not critical
+      console.warn("[Presence] Failed to update presence:", error);
+    },
+    retry: false, // Don't retry failed presence updates
   });
 }
 
@@ -77,7 +86,10 @@ export function useWebSocket(teamId: number | null, enabled = true) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!enabled || !teamId) return;
+    // Disable WebSocket on Vercel or if not enabled
+    if (!enabled || !teamId || window.location.hostname.includes('vercel.app')) {
+      return;
+    }
 
     const connectWebSocket = () => {
       try {
