@@ -11,7 +11,6 @@ import {
   Moon,
   Bell,
   HelpCircle,
-  Search,
   TrendingUp,
   Settings,
   Zap,
@@ -571,25 +570,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Top Header Bar */}
         <header className="shrink-0 h-14 flex items-center justify-between px-6 bg-card border-b border-border sticky top-0 z-40">
-          {/* Search */}
-          <div className="relative hidden sm:flex items-center w-80">
-            <Search className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="search"
-              placeholder="Search your ideas..."
-              className="w-full pl-9 pr-4 py-1.5 text-sm bg-muted/60 border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors placeholder:text-muted-foreground"
-            />
-          </div>
-          <div className="sm:hidden" />
+          {/* Empty left side for balance */}
+          <div />
 
           {/* Header actions */}
           <div className="flex items-center gap-2">
-            <button
-              className="p-2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              title="Help"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </button>
+            <Link href="/help">
+              <button
+                className="p-2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="Help"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            </Link>
 
             {/* ── Notification Bell ── */}
             <div ref={bellRef} className="relative">
@@ -621,21 +614,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 New Idea
               </Button>
             </Link>
-            {/* User chip */}
-            <div className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-muted transition-colors cursor-default">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{
-                  backgroundColor: "hsl(var(--primary)/0.12)",
-                  color: "hsl(var(--primary))",
-                }}
-              >
-                {userInitials}
+            {/* User chip - clickable to Settings */}
+            <Link href="/settings">
+              <div className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-muted transition-colors cursor-pointer">
+                <Avatar className="w-7 h-7 shrink-0 border border-border">
+                  <AvatarImage
+                    src={user?.avatarUrl || undefined}
+                    alt={user?.name || "User avatar"}
+                  />
+                  <AvatarFallback className="text-xs font-bold bg-primary/20 text-primary">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium hidden md:block max-w-30 truncate">
+                  {user?.name || "User"}
+                </span>
               </div>
-              <span className="text-sm font-medium hidden md:block max-w-30 truncate">
-                {user?.name || "User"}
-              </span>
-            </div>
+            </Link>
           </div>
         </header>
 

@@ -19,6 +19,7 @@ import { TeamDetail } from "@/pages/team-detail";
 import { Feed } from "@/pages/feed";
 import { Challenges } from "@/pages/challenges";
 import { Notifications } from "@/pages/notifications";
+import { Help } from "@/pages/help";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -102,6 +103,11 @@ function Router() {
       <Route path="/notifications">
         <Layout>
           <Notifications />
+        </Layout>
+      </Route>
+      <Route path="/help">
+        <Layout>
+          <Help />
         </Layout>
       </Route>
       <Route component={NotFound} />

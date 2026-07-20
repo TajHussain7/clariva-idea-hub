@@ -31,6 +31,7 @@ import {
   Zap,
   Github,
   MessageSquare,
+  Search,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetcher, useGetMe } from "@workspace/api-client-react";
@@ -1708,6 +1709,9 @@ export function Feed() {
   const [offerFilterPublicIdeaId, setOfferFilterPublicIdeaId] = useState<
     number | null
   >(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<FeedItem[] | null>(null);
 
   const { data: me } = useGetMe();
   const currentUserId = me?.id ?? null;
@@ -1773,6 +1777,9 @@ export function Feed() {
   const feed = feedQuery.data ?? [];
   const trending = trendingQuery.data ?? [];
 
+  // Determine displayed feed: search results or regular feed
+  const displayedFeed = searchResults !== null ? searchResults : feed;
+
   const handleToggleComments = (item: FeedItem) => {
     setOpenCommentId((prev) => (prev === item.id ? null : item.id));
   };
@@ -1780,6 +1787,37 @@ export function Feed() {
   const handleViewOffers = (item: FeedItem) => {
     setOfferFilterPublicIdeaId(item.id);
     setSort("offers");
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetcher("/api/feed/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: searchQuery.trim() }),
+      });
+      setSearchResults(response.results);
+    } catch (error) {
+      toast({
+        title: "Search failed",
+        description: "Could not search ideas. Please try again.",
+        variant: "destructive",
+      });
+      setSearchResults(null);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setSearchResults(null);
   };
 
   const tabs: { key: SortTab; label: string; icon: React.ReactNode }[] = [
@@ -1856,6 +1894,8 @@ export function Feed() {
               setSort(key);
               setPage(1);
               setOpenCommentId(null);
+              setSearchQuery("");
+              setSearchResults(null);
               if (key !== "offers") setOfferFilterPublicIdeaId(null);
             }}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
@@ -1869,6 +1909,60 @@ export function Feed() {
           </button>
         ))}
       </div>
+
+      {/* Search Bar - Show only on Recent and Votes tabs */}
+      {sort !== "offers" && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch();
+                  }
+                }}
+                placeholder="Search ideas by title, description, or domain..."
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-muted/60 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors placeholder:text-muted-foreground"
+              />
+            </div>
+            <Button
+              onClick={handleSearch}
+              disabled={!searchQuery.trim() || isSearching}
+              size="sm"
+              className="gap-1.5"
+            >
+              {isSearching ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              Search
+            </Button>
+            {searchResults !== null && (
+              <Button
+                onClick={handleClearSearch}
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+              >
+                <X className="w-4 h-4" />
+                Clear
+              </Button>
+            )}
+          </div>
+          {searchResults !== null && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">
+                Found <span className="font-semibold text-foreground">{searchResults.length}</span> {searchResults.length === 1 ? "idea" : "ideas"} matching "{searchQuery}"
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tab content */}
       {sort === "offers" ? (
@@ -1885,18 +1979,27 @@ export function Feed() {
         )
       ) : (
         <div className="space-y-4">
-          {feedQuery.isLoading && (
+          {feedQuery.isLoading && !searchResults && (
             <div className="flex justify-center py-16">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           )}
-          {!feedQuery.isLoading && feed.length === 0 && (
+          {!feedQuery.isLoading && displayedFeed.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
               <Globe className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No ideas published yet.</p>
+              {searchResults !== null ? (
+                <>
+                  <p className="text-sm font-medium">No ideas found</p>
+                  <p className="text-xs mt-1 opacity-70">
+                    Try adjusting your search query or explore all ideas
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm">No ideas published yet.</p>
+              )}
             </div>
           )}
-          {feed.map((item) => (
+          {displayedFeed.map((item) => (
             <FeedCard
               key={item.id}
               item={item}
@@ -1909,7 +2012,7 @@ export function Feed() {
               onViewOffers={handleViewOffers}
             />
           ))}
-          {(feed.length === 20 || page > 1) && (
+          {searchResults === null && (feed.length === 20 || page > 1) && (
             <div className="flex justify-center gap-2 pt-2">
               <Button
                 variant="outline"
