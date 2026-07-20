@@ -16,6 +16,7 @@ import { Insights } from "@/pages/insights";
 import { Settings } from "@/pages/settings";
 import { Teams } from "@/pages/teams";
 import { TeamDetail } from "@/pages/team-detail";
+import { TeamDiscussionDetail } from "@/pages/team-discussion-detail";
 import { Feed } from "@/pages/feed";
 import { Challenges } from "@/pages/challenges";
 import { Notifications } from "@/pages/notifications";
@@ -93,6 +94,16 @@ function Router() {
         {(params) => (
           <Layout>
             <TeamDetail teamId={parseInt(params.id)} />
+          </Layout>
+        )}
+      </Route>
+      <Route path="/team/:teamId/discussion/:discussionId">
+        {(params) => (
+          <Layout>
+            <TeamDiscussionDetail 
+              teamId={parseInt(params.teamId)} 
+              discussionId={parseInt(params.discussionId)} 
+            />
           </Layout>
         )}
       </Route>

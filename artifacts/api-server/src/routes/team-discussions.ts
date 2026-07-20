@@ -65,6 +65,53 @@ router.get(
   },
 );
 
+// GET /discussions/:id - Get single discussion
+router.get(
+  "/discussions/:id",
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const discussionId = parseInt(String(req.params.id ?? ""), 10);
+    const userId = req.session?.userId;
+
+    if (typeof userId !== "number") {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    try {
+      const [discussion] = await db
+        .select()
+        .from(teamDiscussionsTable)
+        .where(eq(teamDiscussionsTable.id, discussionId));
+
+      if (!discussion) {
+        res.status(404).json({ error: "Discussion not found" });
+        return;
+      }
+
+      // Verify user is member of team that has this discussion
+      const [member] = await db
+        .select()
+        .from(teamMembersTable)
+        .where(
+          and(
+            eq(teamMembersTable.teamId, discussion.teamId),
+            eq(teamMembersTable.userId, userId),
+          ),
+        );
+
+      if (!member) {
+        res.status(403).json({ error: "Not a member of this team" });
+        return;
+      }
+
+      res.json(discussion);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch discussion" });
+    }
+  },
+);
+
 // GET /discussions/:id/messages - Get messages in discussion
 router.get(
   "/discussions/:id/messages",
