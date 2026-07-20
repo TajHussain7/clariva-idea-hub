@@ -267,6 +267,41 @@ export function setupWebSocket(app: Express) {
   (global as any).broadcastToChallenge = broadcastToChallenge;
   (global as any).broadcastToCollabConvo = broadcastToCollabConvo;
   (global as any).broadcastToUser = broadcastToUser;
+
+  // Return functions for external use (like worker process)
+  return {
+    broadcastToTeam,
+    broadcastToFeed,
+    broadcastToChallenge,
+    broadcastToCollabConvo,
+    broadcastToUser,
+  };
+}
+
+// Export broadcast functions for use in worker and other services
+export async function broadcastToTeam(teamId: number, message: any) {
+  const fn = (global as any).broadcastToTeam;
+  if (fn) fn(teamId, message);
+}
+
+export async function broadcastToFeed(message: any) {
+  const fn = (global as any).broadcastToFeed;
+  if (fn) fn(message);
+}
+
+export async function broadcastToChallenge(challengeId: number, message: any) {
+  const fn = (global as any).broadcastToChallenge;
+  if (fn) fn(challengeId, message);
+}
+
+export async function broadcastToCollabConvo(offerId: number, message: any) {
+  const fn = (global as any).broadcastToCollabConvo;
+  if (fn) fn(offerId, message);
+}
+
+export async function broadcastToUser(userId: number, message: any) {
+  const fn = (global as any).broadcastToUser;
+  if (fn) fn(userId, message);
 }
 
 export default setupWebSocket;

@@ -38,40 +38,66 @@ Most startup ideas fail not because of poor execution, but because of poor valid
 
 ## 🛠️ Tech Stack
 
-| Layer | Technologies |
-|---|---|
-| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS v4, Radix UI, TanStack Query, Framer Motion, Recharts, Wouter |
-| **Backend** | Node.js, Express, TypeScript, Pino Logger, express-session |
-| **Database** | PostgreSQL (Supabase), Drizzle ORM |
-| **AI / LLM** | OpenRouter API (multi-model routing), GitHub API |
-| **Auth** | Session-based authentication with PostgreSQL session store |
-| **Package Manager** | pnpm Workspaces (monorepo) |
-| **Deployment** | Vercel (frontend), Render (backend), Docker |
-| **CI/CD** | GitHub Actions (build, typecheck, Docker push, Render deploy hook) |
+| Layer               | Technologies                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Frontend**        | React 18, Vite, TypeScript, Tailwind CSS v4, Radix UI, TanStack Query, Framer Motion, Recharts, Wouter |
+| **Backend**         | Node.js, Express, TypeScript, Pino Logger, express-session                                             |
+| **Database**        | PostgreSQL (Supabase), Drizzle ORM                                                                     |
+| **AI / LLM**        | OpenRouter API (multi-model routing), GitHub API                                                       |
+| **Auth**            | Session-based authentication with PostgreSQL session store                                             |
+| **Package Manager** | pnpm Workspaces (monorepo)                                                                             |
+| **Deployment**      | Vercel (frontend), Render (backend), Docker                                                            |
+| **CI/CD**           | GitHub Actions (build, typecheck, Docker push, Render deploy hook)                                     |
 
 ---
 
 ## ⚙️ System Functionalities
 
-| Feature | Description |
-|---|---|
-| **User Registration & Login** | Secure email/password authentication with bcrypt hashing and session cookies |
-| **Idea Submission** | Submit ideas with title, description, domain, and complexity level |
-| **AI Analysis** | Automated background analysis producing 5 dimension scores, strengths, weaknesses, risks, and market context |
-| **Results Dashboard** | View all submitted ideas with status tracking (pending, processing, analyzed, failed) |
-| **Idea Comparison** | Side-by-side comparison of multiple ideas using radar and bar charts |
-| **AI Pivot Suggestions** | For low-scoring ideas, generate 3 specific, actionable pivot strategies |
-| **AI Insights** | Aggregated analytics and patterns across all of a user's ideas |
-| **Team Collaboration** | Create teams, invite members, share ideas within teams, and discuss with real-time presence indicators |
-| **Settings & Profile** | Update profile, avatar, theme (dark/light), language, and notification preferences |
-| **PDF Export** | Export idea analysis reports as professional PDFs |
-| **Dark/Light Mode** | Persistent theme preference synced to the database |
+### Core Features
+
+| Feature                       | Description                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **User Registration & Login** | Secure email/password authentication with bcrypt hashing and session cookies                                 |
+| **Idea Submission**           | Submit ideas with title, description, domain, and complexity level                                           |
+| **AI Analysis**               | Automated background analysis producing 5 dimension scores, strengths, weaknesses, risks, and market context |
+| **Results Dashboard**         | View all submitted ideas with status tracking (pending, processing, analyzed, failed)                        |
+| **Idea Comparison**           | Side-by-side comparison of multiple ideas using radar and bar charts                                         |
+| **AI Pivot Suggestions**      | For low-scoring ideas, generate 3 specific, actionable pivot strategies                                      |
+| **AI Insights**               | Aggregated analytics and patterns across all of a user's ideas                                               |
+| **Team Collaboration**        | Create teams, invite members, share ideas within teams, and discuss with real-time presence indicators       |
+| **Settings & Profile**        | Update profile, avatar, theme (dark/light), language, and notification preferences                           |
+| **PDF Export**                | Export idea analysis reports as professional PDFs                                                            |
+| **Dark/Light Mode**           | Persistent theme preference synced to the database                                                           |
+
+### Weekly Challenge System
+
+Clariva features a **fully automated Weekly Challenge System** that maintains continuous community competitions:
+
+| Feature                     | Description                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **AI-Generated Challenges** | Challenges automatically created using OpenRouter AI with domain variety and engaging problem statements                 |
+| **Automated Lifecycle**     | Background worker manages challenge creation, extensions, completion, and winner calculation without manual intervention |
+| **Smart Extensions**        | Challenges auto-extend by 2 days when no submissions exist 24 hours before expiration                                    |
+| **Winner Calculation**      | Sophisticated tiebreaker logic: highest votes → earliest submission → AI evaluation for simultaneous ties                |
+| **Badge System**            | Automated "challenge_winner" badge awarding with duplicate prevention                                                    |
+| **Self-Voting Prevention**  | Backend validation and frontend UI prevent users from voting on their own submissions                                    |
+| **Real-Time Updates**       | WebSocket broadcasts for challenge creation, extensions, winner announcements, and vote updates                          |
+| **Professional UX**         | Empty states, extension badges, user submission highlights, and winner celebration animations                            |
+
+**Technical Implementation:**
+
+- Separate **worker process** runs independently every hour
+- Retry logic with exponential backoff for reliability
+- Idempotent operations prevent duplicate actions
+- Race condition protection with optimistic locking
+- Comprehensive error handling and logging
 
 ---
 
 ## 🔍 Gap Filling
 
 Most existing idea validation tools fall into one of two categories:
+
 1. **Manual frameworks** (e.g., lean canvas, business model canvas) that require significant time and domain expertise.
 2. **Generic AI chatbots** that provide unstructured, non-reproducible feedback.
 
@@ -92,6 +118,7 @@ Clariva addresses both gaps by providing a **structured, reproducible, automated
 ## 🚀 Getting Started (Local Development)
 
 ### Prerequisites
+
 - Node.js v18+
 - pnpm v9+
 
@@ -110,6 +137,7 @@ cp .env.example .env
 ```
 
 Fill in `.env` with your actual values:
+
 - `DATABASE_URL` — PostgreSQL connection string (Supabase or local)
 - `SESSION_SECRET` — A long, random secret string
 - `CORS_ORIGIN` — `http://localhost:5173` for local development
@@ -134,10 +162,10 @@ pnpm dev
 
 ## ☁️ Deployment Configuration
 
-| Service | Platform | Required Environment Variables |
-|---|---|---|
-| **Frontend** | Vercel | `VITE_API_URL=https://your-render-api.onrender.com` |
-| **Backend** | Render | `DATABASE_URL`, `SESSION_SECRET`, `CORS_ORIGIN=https://your-vercel-url.vercel.app`, `NODE_ENV=production`, `AI_INTEGRATIONS_OPENROUTER_API_KEY` |
+| Service      | Platform | Required Environment Variables                                                                                                                  |
+| ------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend** | Vercel   | `VITE_API_URL=https://your-render-api.onrender.com`                                                                                             |
+| **Backend**  | Render   | `DATABASE_URL`, `SESSION_SECRET`, `CORS_ORIGIN=https://your-vercel-url.vercel.app`, `NODE_ENV=production`, `AI_INTEGRATIONS_OPENROUTER_API_KEY` |
 
 > **Important:** `CORS_ORIGIN` on Render **must** match your Vercel frontend URL exactly. Without it, session cookies will be blocked and all authenticated requests return 401.
 
@@ -145,11 +173,11 @@ pnpm dev
 
 ## 👥 Contributors
 
-| Name | Email | Role |
-|---|---|---|
+| Name                | Email                        | Role                                                 |
+| ------------------- | ---------------------------- | ---------------------------------------------------- |
 | **Tajamal Hussain** | tajamalhussain1004@gmail.com | Team Lead, Backend Developer, Version/Docker Manager |
-| **Manir Ahmad** | munirahmed135652@gmail.com | Documentation & Project Manager |
-| **Abdul Wahab** | aistudent1483@gmail.com | Frontend Developer |
+| **Manir Ahmad**     | munirahmed135652@gmail.com   | Documentation & Project Manager                      |
+| **Abdul Wahab**     | aistudent1483@gmail.com      | Frontend Developer                                   |
 
 ---
 
