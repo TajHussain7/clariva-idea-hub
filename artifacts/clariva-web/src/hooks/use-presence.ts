@@ -28,42 +28,53 @@ export function useTeamPresence(teamId: number) {
       }
     };
 
-    window.addEventListener("presence-update", handlePresenceUpdate as EventListener);
+    window.addEventListener(
+      "presence-update",
+      handlePresenceUpdate as EventListener,
+    );
 
     return () => {
-      window.removeEventListener("presence-update", handlePresenceUpdate as EventListener);
+      window.removeEventListener(
+        "presence-update",
+        handlePresenceUpdate as EventListener,
+      );
     };
   }, [teamId, queryClient]);
 
-  return useQuery({
+  return useQuery<UserPresence[], unknown>({
     queryKey: ["teams", teamId, "presence"],
     queryFn: async () => {
-      return fetcher<UserPresence[]>(`/api/teams/${teamId}/presence`);
+      try {
+        return await fetcher<UserPresence[]>(`/api/teams/${teamId}/presence`);
+      } catch (err) {
+        console.warn("[Presence] Failed to fetch team presence:", err);
+        return [] as UserPresence[];
+      }
     },
     enabled: !!teamId,
     refetchInterval: 10000, // Refetch every 10 seconds to ensure fresh data
     staleTime: 5000, // Consider data stale after 5 seconds
     retry: false, // Don't retry if presence fails - it's not critical
-    onError: (error) => {
-      console.warn("[Presence] Failed to fetch team presence:", error);
-    },
   });
 }
 
 export function useUpdatePresence() {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async (data: {
+  return useMutation<
+    any,
+    unknown,
+    {
       teamId?: number;
       isOnline: boolean;
       location?: "dashboard" | "team" | "idea" | "discussion";
-    }) => {
-      return fetcher<any>("/api/presence", {
+    }
+  >({
+    mutationFn: async (data) =>
+      fetcher<any>("/api/presence", {
         method: "POST",
         body: JSON.stringify(data),
-      });
-    },
+      }),
     onSuccess: (_, variables) => {
       if (variables.teamId) {
         queryClient.invalidateQueries({
@@ -71,7 +82,7 @@ export function useUpdatePresence() {
         });
       }
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       // Silently fail - presence is not critical
       console.warn("[Presence] Failed to update presence:", error);
     },
@@ -87,7 +98,11 @@ export function useWebSocket(teamId: number | null, enabled = true) {
 
   useEffect(() => {
     // Disable WebSocket on Vercel or if not enabled
-    if (!enabled || !teamId || window.location.hostname.includes('vercel.app')) {
+    if (
+      !enabled ||
+      !teamId ||
+      window.location.hostname.includes("vercel.app")
+    ) {
       return;
     }
 
@@ -101,7 +116,7 @@ export function useWebSocket(teamId: number | null, enabled = true) {
         wsRef.current.onopen = () => {
           console.log("[WebSocket] Connected");
           reconnectAttempts.current = 0;
-          
+
           // Subscribe to team
           if (wsRef.current && teamId) {
             wsRef.current.send(JSON.stringify({ type: "subscribe", teamId }));
@@ -122,19 +137,22 @@ export function useWebSocket(teamId: number | null, enabled = true) {
           try {
             const message = JSON.parse(event.data);
             console.log("[WebSocket] Message received:", message);
-            
+
             if (message.type === "presence_update") {
               // Invalidate presence query to refetch
               queryClient.invalidateQueries({
                 queryKey: ["teams", teamId, "presence"],
               });
-              
+
               // Also dispatch custom event for other listeners
               window.dispatchEvent(
                 new CustomEvent("presence-update", { detail: message }),
               );
             } else if (message.type === "subscribed") {
-              console.log("[WebSocket] Subscription confirmed for team:", message.teamId);
+              console.log(
+                "[WebSocket] Subscription confirmed for team:",
+                message.teamId,
+              );
             }
           } catch (error) {
             console.error("[WebSocket] Error parsing message:", error);
@@ -155,7 +173,9 @@ export function useWebSocket(teamId: number | null, enabled = true) {
               1000 * Math.pow(2, reconnectAttempts.current),
               30000,
             );
-            console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
+            console.log(
+              `[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`,
+            );
             setTimeout(connectWebSocket, delay);
           } else {
             console.error("[WebSocket] Max reconnection attempts reached");
