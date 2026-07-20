@@ -61,13 +61,14 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
 
   // Update user presence when component mounts
   useEffect(() => {
-    if (teamId && currentUser?.id) {
-      updatePresence.mutate({
-        teamId,
-        isOnline: true,
-        location: "team",
-      });
-    }
+    if (!teamId || !currentUser?.id) return;
+
+    // Only update presence, don't fail if it errors
+    updatePresence.mutate({
+      teamId,
+      isOnline: true,
+      location: "team",
+    });
 
     // Listen for WebSocket presence updates
     const handlePresenceUpdate = () => {
@@ -80,16 +81,8 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
 
     return () => {
       window.removeEventListener("presence-update", handlePresenceUpdate);
-      // Mark as offline when leaving
-      if (teamId && currentUser?.id) {
-        updatePresence.mutate({
-          teamId,
-          isOnline: false,
-          location: "dashboard",
-        });
-      }
     };
-  }, [teamId, currentUser?.id, updatePresence, queryClient]);
+  }, [teamId, currentUser?.id, queryClient]);
 
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
