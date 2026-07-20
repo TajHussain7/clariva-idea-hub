@@ -11,7 +11,7 @@ import {
   Sparkles,
   AlertCircle,
 } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tantml/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetcher, useListIdeas } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -285,7 +285,11 @@ export function Challenges() {
   });
 
   // Winner (only when ended)
-  const winnerQuery = useQuery<{ winner: Winner | null; badgeAwarded?: boolean; message?: string }>({
+  const winnerQuery = useQuery<{
+    winner: Winner | null;
+    badgeAwarded?: boolean;
+    message?: string;
+  }>({
     queryKey: ["challenge-winner", challenge?.id],
     queryFn: () => fetcher(`/api/challenges/${challenge!.id}/winner`),
     enabled: !!challenge && isEnded,
@@ -328,10 +332,14 @@ export function Challenges() {
         ctx?.prev,
       );
       const message = error?.message || "Vote failed";
-      toast({ 
-        title: message.includes("own submission") ? "Cannot vote on own submission" : "Vote failed",
-        description: message.includes("own submission") ? "You cannot vote for your own idea" : undefined,
-        variant: "destructive" 
+      toast({
+        title: message.includes("own submission")
+          ? "Cannot vote on own submission"
+          : "Vote failed",
+        description: message.includes("own submission")
+          ? "You cannot vote for your own idea"
+          : undefined,
+        variant: "destructive",
       });
     },
     onSettled: () => {
@@ -355,9 +363,13 @@ export function Challenges() {
       });
     } else if (msg.type === "challenge_completed") {
       queryClient.invalidateQueries({ queryKey: ["challenge-active"] });
-      queryClient.invalidateQueries({ queryKey: ["challenge-winner", challenge?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["challenge-winner", challenge?.id],
+      });
     } else if (msg.type === "winner_declared") {
-      queryClient.invalidateQueries({ queryKey: ["challenge-winner", challenge?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["challenge-winner", challenge?.id],
+      });
       toast({
         title: "🎉 Winner Announced!",
         description: "Check out the winning idea below.",
@@ -397,7 +409,8 @@ export function Challenges() {
           No Active Challenge Yet
         </h2>
         <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed">
-          A new AI-generated weekly challenge will appear here soon. Check back in a bit, or the system will automatically create one within the hour.
+          A new AI-generated weekly challenge will appear here soon. Check back
+          in a bit, or the system will automatically create one within the hour.
         </p>
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
           <AlertCircle className="w-4 h-4" />
@@ -408,7 +421,7 @@ export function Challenges() {
   }
 
   // Find user's own submission
-  const userSubmission = submissions.find(s => s.isOwnSubmission);
+  const userSubmission = submissions.find((s) => s.isOwnSubmission);
 
   return (
     <div className="space-y-8 pb-10 animate-in fade-in duration-500">
@@ -478,7 +491,7 @@ export function Challenges() {
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
             {challenge.description}
           </p>
-          
+
           {/* Extension info */}
           {challenge.isExtended && challenge.extensionInfo && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
@@ -486,7 +499,8 @@ export function Challenges() {
               <div className="text-xs text-amber-700">
                 <p className="font-semibold">Challenge Extended</p>
                 <p className="text-amber-600/80 mt-0.5">
-                  Extended by 2 days due to low submissions. New deadline: {new Date(challenge.endsAt).toLocaleDateString()}
+                  Extended by 2 days due to low submissions. New deadline:{" "}
+                  {new Date(challenge.endsAt).toLocaleDateString()}
                 </p>
               </div>
             </div>
@@ -521,19 +535,26 @@ export function Challenges() {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              <p className="text-sm font-semibold text-foreground">Your Submission</p>
+              <p className="text-sm font-semibold text-foreground">
+                Your Submission
+              </p>
             </div>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-foreground">{userSubmission.ideaTitle}</p>
+                <p className="font-semibold text-foreground">
+                  {userSubmission.ideaTitle}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Submitted {new Date(userSubmission.submittedAt).toLocaleDateString()}
+                  Submitted{" "}
+                  {new Date(userSubmission.submittedAt).toLocaleDateString()}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-primary">{userSubmission.voteCount}</p>
+                <p className="text-2xl font-bold text-primary">
+                  {userSubmission.voteCount}
+                </p>
                 <p className="text-xs text-muted-foreground">votes</p>
               </div>
             </div>
@@ -572,8 +593,8 @@ export function Challenges() {
                 sub.isOwnSubmission
                   ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                   : idx === 0
-                  ? "border-amber-500/40 bg-amber-500/5"
-                  : "border-border bg-card"
+                    ? "border-amber-500/40 bg-amber-500/5"
+                    : "border-border bg-card"
               }`}
             >
               {/* Rank */}
@@ -613,10 +634,14 @@ export function Challenges() {
                     sub.isOwnSubmission
                       ? "bg-muted text-muted-foreground/50 border-border cursor-not-allowed"
                       : sub.hasVoted
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
                   }`}
-                  title={sub.isOwnSubmission ? "Cannot vote on your own submission" : undefined}
+                  title={
+                    sub.isOwnSubmission
+                      ? "Cannot vote on your own submission"
+                      : undefined
+                  }
                 >
                   <ThumbsUp className="w-3.5 h-3.5" />
                   {sub.voteCount}
