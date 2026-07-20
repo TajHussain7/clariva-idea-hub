@@ -19,11 +19,13 @@ const router: IRouter = Router();
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Strip user identity when the idea is posted anonymously */
-function maskIfAnonymous(row: {
-  isAnonymous: boolean;
-  submitterName: string | null;
-  submitterId: number | null;
-}) {
+function maskIfAnonymous<
+  T extends {
+    isAnonymous: boolean;
+    submitterName: string | null;
+    submitterId: number | null;
+  },
+>(row: T): T {
   if (row.isAnonymous) {
     return { ...row, submitterName: "Anonymous", submitterId: null };
   }
@@ -759,13 +761,22 @@ router.post("/feed/search", requireAuth, async (req, res): Promise<void> => {
 
     // Calculate relevance score based on match quality
     const results = rows.map((row) => {
-      const titleMatch = row.ideaTitle.toLowerCase().includes(query.toLowerCase());
-      const domainMatch = row.ideaDomain.toLowerCase().includes(query.toLowerCase());
-      const descriptionMatch = row.ideaDescription.toLowerCase().includes(query.toLowerCase());
-      
+      const titleMatch = row.ideaTitle
+        .toLowerCase()
+        .includes(query.toLowerCase());
+      const domainMatch = row.ideaDomain
+        .toLowerCase()
+        .includes(query.toLowerCase());
+      const descriptionMatch = row.ideaDescription
+        .toLowerCase()
+        .includes(query.toLowerCase());
+
       // Higher score for title matches, then domain, then description
-      const relevanceScore = (titleMatch ? 3 : 0) + (domainMatch ? 2 : 0) + (descriptionMatch ? 1 : 0);
-      
+      const relevanceScore =
+        (titleMatch ? 3 : 0) +
+        (domainMatch ? 2 : 0) +
+        (descriptionMatch ? 1 : 0);
+
       return { ...maskIfAnonymous(row), relevanceScore };
     });
 
