@@ -23,6 +23,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.1",
     "express-session": "^1.18.1",
+    "node-cron": "^4.6.0",
     "nodemailer": "^9.0.3",
     "pino": "^9.7.0",
     "pino-http": "^10.4.0"
@@ -35,6 +36,7 @@
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.18.1",
     "@types/node": "catalog:",
+    "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^8.0.1",
     "esbuild": "^0.25.4",
     "esbuild-plugin-pino": "^2.3.3",
