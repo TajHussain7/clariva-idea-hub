@@ -138,9 +138,17 @@ export function Auth() {
           if (response?.token) {
             localStorage.setItem("auth_token", response.token);
             setAuthTokenGetter(() => response.token!);
+            queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+            setLocation("/dashboard");
+          } else {
+            toast({
+              title: "Registration Successful!",
+              description:
+                "Please check your email inbox for a verification link. You must verify your email before logging in.",
+              duration: 8000,
+            });
+            registerForm.reset();
           }
-          queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-          setLocation("/dashboard");
         },
         onError: (error: any) => {
           toast({
@@ -346,6 +354,7 @@ export function Auth() {
                           </FormLabel>
                           <button
                             type="button"
+                            onClick={() => setLocation("/forgot-password")}
                             className="text-xs text-primary hover:underline font-medium"
                           >
                             Forgot password?
@@ -487,6 +496,10 @@ export function Auth() {
                             />
                           </div>
                         </FormControl>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Please use a valid email address. A verification link
+                          will be sent to this address.
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
