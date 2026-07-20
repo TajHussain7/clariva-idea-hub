@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTeamDetail, useDeleteTeam } from "@/hooks/use-teams";
 import { useTeamMembers, useInviteTeamMember } from "@/hooks/use-team-members";
 import {
   useTeamDiscussions,
   useCreateDiscussion,
 } from "@/hooks/use-discussions";
-import { useTeamPresence, useWebSocket } from "@/hooks/use-presence";
+import { useTeamPresence, useWebSocket, useUpdatePresence } from "@/hooks/use-presence";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Trash2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Trash2, MessageSquare } from "lucide-react";
 
 interface TeamDetailProps {
   teamId: number;
@@ -51,10 +52,44 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
   const inviteTeamMember = useInviteTeamMember(teamId);
   const createDiscussion = useCreateDiscussion(teamId);
   const deleteTeam = useDeleteTeam();
+  const updatePresence = useUpdatePresence();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   const wsRef = useWebSocket(teamId);
+
+  // Update user presence when component mounts
+  useEffect(() => {
+    if (teamId && currentUser?.id) {
+      updatePresence.mutate({
+        teamId,
+        isOnline: true,
+        location: "team",
+      });
+    }
+
+    // Listen for WebSocket presence updates
+    const handlePresenceUpdate = () => {
+      queryClient.invalidateQueries({
+        queryKey: ["teams", teamId, "presence"],
+      });
+    };
+
+    window.addEventListener("presence-update", handlePresenceUpdate);
+
+    return () => {
+      window.removeEventListener("presence-update", handlePresenceUpdate);
+      // Mark as offline when leaving
+      if (teamId && currentUser?.id) {
+        updatePresence.mutate({
+          teamId,
+          isOnline: false,
+          location: "dashboard",
+        });
+      }
+    };
+  }, [teamId, currentUser?.id, updatePresence, queryClient]);
 
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -208,19 +243,26 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
               {discussions.map((discussion) => (
                 <Card
                   key={discussion.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  className="cursor-pointer hover:shadow-md transition-shadow hover:border-primary/50"
                   onClick={() =>
                     setLocation(`/team/${teamId}/discussion/${discussion.id}`)
                   }
                 >
                   <CardContent className="py-4">
-                    <p className="font-medium text-foreground">
-                      {discussion.title}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Created on{" "}
-                      {new Date(discussion.createdAt).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">
+                          {discussion.title}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Created on{" "}
+                          {new Date(discussion.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -228,48 +270,94 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           ) : (
             <Card>
               <CardContent className="text-center py-8">
-                <p className="text-muted-foreground">No discussions yet</p>
+                <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                <p className="text-muted-foreground mb-2">No discussions yet</p>
+                <p className="text-xs text-muted-foreground opacity-70">
+                  Start a conversation with your team
+                </p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="presence" className="space-y-4">
-          {presence && presence.length > 0 ? (
+          {presence && presence.filter((p) => p.isOnline).length > 0 ? (
             <div className="space-y-2">
-              {presence.map((user) => (
-                <Card key={user.userId}>
-                  <CardContent className="flex items-center justify-between py-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-3 h-3 rounded-full ${
-                          user.isOnline
-                            ? "bg-green-500"
-                            : "bg-muted-foreground/40"
-                        }`}
-                      />
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {user.user.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {user.location}
+              {presence
+                .filter((user) => user.isOnline)
+                .map((user) => (
+                  <Card key={user.userId}>
+                    <CardContent className="flex items-center justify-between py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-sm font-semibold text-primary">
+                              {user.user.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-card" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {user.user.name}
+                          </p>
+                          <p className="text-sm text-muted-foreground capitalize">
+                            {user.location || "team"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <p className="text-xs font-medium text-green-600">
+                          Online
                         </p>
                       </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {user.isOnline ? "Online now" : "Offline"}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))}
             </div>
           ) : (
             <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-muted-foreground">No one is online</p>
+              <CardContent className="text-center py-12">
+                <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-muted-foreground/20" />
+                </div>
+                <p className="text-muted-foreground mb-2">No one is online right now</p>
+                <p className="text-xs text-muted-foreground opacity-70">
+                  Team members will appear here when they join
+                </p>
               </CardContent>
             </Card>
+          )}
+
+          {/* Show offline members for context */}
+          {presence && presence.filter((p) => !p.isOnline).length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">
+                Offline Members
+              </h3>
+              <div className="space-y-2 opacity-60">
+                {presence
+                  .filter((user) => !user.isOnline)
+                  .map((user) => (
+                    <Card key={user.userId}>
+                      <CardContent className="flex items-center justify-between py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                            <span className="text-xs font-semibold text-muted-foreground">
+                              {user.user.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {user.user.name}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Offline</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            </div>
           )}
         </TabsContent>
       </Tabs>
