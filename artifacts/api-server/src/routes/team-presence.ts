@@ -86,6 +86,7 @@ router.get(
     const teamId = parseInt(String(req.params.id ?? ""), 10);
 
     try {
+      // Get all team members with their presence status
       const presence = await db
         .select({
           userId: userPresenceTable.userId,
@@ -99,18 +100,26 @@ router.get(
             avatarUrl: usersTable.avatarUrl,
           },
         })
-        .from(userPresenceTable)
-        .innerJoin(
-          teamMembersTable,
-          and(
-            eq(userPresenceTable.userId, teamMembersTable.userId),
-            eq(teamMembersTable.teamId, teamId),
-          ),
+        .from(teamMembersTable)
+        .innerJoin(usersTable, eq(teamMembersTable.userId, usersTable.id))
+        .leftJoin(
+          userPresenceTable,
+          eq(teamMembersTable.userId, userPresenceTable.userId)
         )
-        .leftJoin(usersTable, eq(userPresenceTable.userId, usersTable.id));
+        .where(eq(teamMembersTable.teamId, teamId));
 
-      res.json(presence);
+      // Map results and ensure proper online status
+      const mappedPresence = presence.map((p) => ({
+        userId: p.userId || p.user.id,
+        isOnline: p.isOnline || false,
+        lastActivity: p.lastActivity || new Date().toISOString(),
+        location: p.location || "dashboard",
+        user: p.user,
+      }));
+
+      res.json(mappedPresence);
     } catch (error) {
+      console.error("[Presence] Error fetching team presence:", error);
       res.status(500).json({ error: "Failed to fetch presence" });
     }
   },

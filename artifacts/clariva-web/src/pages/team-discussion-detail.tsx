@@ -9,7 +9,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, Loader2 } from "lucide-react";
 
 interface TeamDiscussionDetailProps {
   teamId: number;
@@ -55,7 +55,7 @@ export function TeamDiscussionDetail({ teamId, discussionId }: TeamDiscussionDet
   if (discussionLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading discussion...</p>
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -89,11 +89,12 @@ export function TeamDiscussionDetail({ teamId, discussionId }: TeamDiscussionDet
           variant="ghost"
           size="sm"
           onClick={() => setLocation(`/team/${teamId}`)}
+          className="text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground">{discussion.title}</h1>
           <p className="text-sm text-muted-foreground">
             Created on {new Date(discussion.createdAt).toLocaleString()}
@@ -101,12 +102,12 @@ export function TeamDiscussionDetail({ teamId, discussionId }: TeamDiscussionDet
         </div>
       </div>
 
-      {/* Messages Container */}
-      <Card className="h-[500px] flex flex-col">
-        <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
+      {/* Messages Container - Matching Collaborate Tab Style */}
+      <Card className="h-[calc(100vh-280px)] min-h-[500px] flex flex-col border-border shadow-lg">
+        <CardContent className="flex-1 overflow-y-auto p-6 space-y-3">
           {messagesLoading ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">Loading messages...</p>
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : messages && messages.length > 0 ? (
             <>
@@ -118,39 +119,41 @@ export function TeamDiscussionDetail({ teamId, discussionId }: TeamDiscussionDet
                     className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[70%] rounded-lg p-4 ${
+                      className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm space-y-1 ${
                         isOwnMessage
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-muted text-foreground rounded-bl-md"
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
+                      {!isOwnMessage && (
                         <p
-                          className={`text-sm font-medium ${
-                            isOwnMessage ? "text-primary-foreground" : "text-foreground"
-                          }`}
-                        >
-                          {message.user.name}
-                        </p>
-                        <p
-                          className={`text-xs ${
+                          className={`text-[10px] font-semibold ${
                             isOwnMessage
                               ? "text-primary-foreground/70"
                               : "text-muted-foreground"
-                          }`}
+                          } mb-0.5`}
                         >
-                          {new Date(message.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {message.user.name}
                         </p>
-                      </div>
+                      )}
                       <p
-                        className={`text-sm whitespace-pre-wrap break-words ${
+                        className={`whitespace-pre-wrap break-words ${
                           isOwnMessage ? "text-primary-foreground" : "text-foreground"
                         }`}
                       >
                         {message.content}
+                      </p>
+                      <p
+                        className={`text-[10px] ${
+                          isOwnMessage
+                            ? "text-primary-foreground/60 text-right"
+                            : "text-muted-foreground text-right"
+                        }`}
+                      >
+                        {new Date(message.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </p>
                     </div>
                   </div>
@@ -159,16 +162,20 @@ export function TeamDiscussionDetail({ teamId, discussionId }: TeamDiscussionDet
               <div ref={messagesEndRef} />
             </>
           ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">
-                No messages yet. Start the conversation!
+            <div className="flex flex-col items-center justify-center h-full">
+              <MessageSquare className="w-10 h-10 mb-3 opacity-20" />
+              <p className="text-muted-foreground mb-1">
+                No messages yet
+              </p>
+              <p className="text-xs text-muted-foreground opacity-70">
+                Start the conversation!
               </p>
             </div>
           )}
         </CardContent>
 
-        {/* Message Input */}
-        <div className="border-t p-4">
+        {/* Message Input - Matching Collaborate Tab Style */}
+        <div className="border-t border-border p-4 bg-card">
           <div className="flex gap-2">
             <Input
               placeholder="Type your message..."
@@ -176,17 +183,17 @@ export function TeamDiscussionDetail({ teamId, discussionId }: TeamDiscussionDet
               onChange={(e) => setMessageContent(e.target.value)}
               onKeyPress={handleKeyPress}
               disabled={sendMessage.isPending}
+              className="flex-1"
             />
             <Button
               onClick={handleSendMessage}
               disabled={sendMessage.isPending || !messageContent.trim()}
+              className="px-4"
             >
               {sendMessage.isPending ? (
-                "Sending..."
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                </>
+                <Send className="w-4 h-4" />
               )}
             </Button>
           </div>
