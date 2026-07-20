@@ -3,7 +3,16 @@ import { useLocation, useSearch } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Lock, Sparkles, CheckCircle, XCircle, Check, X } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Sparkles,
+  CheckCircle,
+  XCircle,
+  Check,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -24,19 +33,22 @@ const passwordValidation = z
   .refine((val) => /[0-9]/.test(val), "One number required")
   .refine((val) => /[^A-Za-z0-9]/.test(val), "One special character required");
 
-const resetPasswordSchema = z.object({
-  newPassword: passwordValidation,
-  confirmPassword: z.string(),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+const resetPasswordSchema = z
+  .object({
+    newPassword: passwordValidation,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 export function ResetPassword() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
+  const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, "") ?? "";
   const { toast } = useToast();
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -67,9 +79,9 @@ export function ResetPassword() {
 
     setIsLoading(true);
     setError("");
-    
+
     try {
-      const response = await fetch("/api/auth/reset-password", {
+      const response = await fetch(`${apiUrl}/api/auth/reset-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,7 +100,7 @@ export function ResetPassword() {
           title: "Password Reset!",
           description: result.message,
         });
-        
+
         // Redirect to login after 3 seconds
         setTimeout(() => {
           setLocation("/auth?tab=login");
@@ -163,7 +175,8 @@ export function ResetPassword() {
             <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold mb-2">Password Reset!</h1>
             <p className="text-muted-foreground mb-6">
-              Your password has been successfully reset. You can now log in with your new password.
+              Your password has been successfully reset. You can now log in with
+              your new password.
             </p>
             <p className="text-sm text-muted-foreground mb-4">
               Redirecting to login page in 3 seconds...
@@ -240,7 +253,7 @@ export function ResetPassword() {
                       </div>
                     </FormControl>
                     <FormMessage />
-                    
+
                     {/* Password strength indicators */}
                     <div className="mt-2.5 p-3 bg-muted/40 rounded-lg border border-border/60">
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
@@ -286,7 +299,9 @@ export function ResetPassword() {
                         />
                         <button
                           type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
                         >
                           {showConfirmPassword ? (

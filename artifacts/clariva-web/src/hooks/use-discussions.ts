@@ -34,6 +34,16 @@ export function useTeamDiscussions(teamId: number) {
   });
 }
 
+export function useDiscussion(discussionId: number) {
+  return useQuery({
+    queryKey: ["discussions", discussionId],
+    queryFn: async () => {
+      return fetcher<Discussion>(`/api/discussions/${discussionId}`);
+    },
+    enabled: !!discussionId,
+  });
+}
+
 export function useDiscussionMessages(discussionId: number) {
   return useQuery({
     queryKey: ["discussions", discussionId, "messages"],

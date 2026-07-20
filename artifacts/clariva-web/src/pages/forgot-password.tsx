@@ -22,6 +22,7 @@ const forgotPasswordSchema = z.object({
 
 export function ForgotPassword() {
   const [, setLocation] = useLocation();
+  const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, "") ?? "";
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -33,9 +34,9 @@ export function ForgotPassword() {
 
   const onSubmit = async (data: z.infer<typeof forgotPasswordSchema>) => {
     setIsLoading(true);
-    
+
     try {
-      const response = await fetch("/api/auth/forgot-password", {
+      const response = await fetch(`${apiUrl}/api/auth/forgot-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -89,7 +90,8 @@ export function ForgotPassword() {
             <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold mb-2">Check Your Email</h1>
             <p className="text-muted-foreground mb-6">
-              We've sent a password reset link to your email address. Please check your inbox and follow the instructions.
+              We've sent a password reset link to your email address. Please
+              check your inbox and follow the instructions.
             </p>
             <p className="text-sm text-muted-foreground mb-4">
               Didn't receive the email? Check your spam folder or try again.
@@ -132,7 +134,8 @@ export function ForgotPassword() {
 
           <h1 className="text-2xl font-bold mb-2">Forgot Password?</h1>
           <p className="text-muted-foreground mb-6">
-            No worries! Enter your email address and we'll send you a link to reset your password.
+            No worries! Enter your email address and we'll send you a link to
+            reset your password.
           </p>
 
           <Form {...form}>

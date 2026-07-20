@@ -7,14 +7,17 @@ import { useToast } from "@/hooks/use-toast";
 export function VerifyEmail() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
+  const apiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, "") ?? "";
   const { toast } = useToast();
-  
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+
+  const [status, setStatus] = useState<"loading" | "success" | "error">(
+    "loading",
+  );
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     const token = new URLSearchParams(searchString).get("token");
-    
+
     if (!token) {
       setStatus("error");
       setMessage("No verification token provided");
@@ -22,7 +25,7 @@ export function VerifyEmail() {
     }
 
     // Call the verification API
-    fetch("/api/auth/verify-email", {
+    fetch(`${apiUrl}/api/auth/verify-email`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -31,17 +34,17 @@ export function VerifyEmail() {
     })
       .then(async (response) => {
         const data = await response.json();
-        
+
         if (response.ok) {
           setStatus("success");
           setMessage(data.message || "Email verified successfully!");
-          
+
           // Show success toast
           toast({
             title: "Email Verified!",
             description: "You can now log in to your account.",
           });
-          
+
           // Redirect to login after 3 seconds
           setTimeout(() => {
             setLocation("/auth?tab=login");
