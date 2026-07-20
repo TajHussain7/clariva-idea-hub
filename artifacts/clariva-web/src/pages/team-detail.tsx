@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useTeamDetail } from "@/hooks/use-teams";
+import { useTeamDetail, useDeleteTeam } from "@/hooks/use-teams";
 import { useTeamMembers, useInviteTeamMember } from "@/hooks/use-team-members";
 import {
   useTeamDiscussions,
   useCreateDiscussion,
 } from "@/hooks/use-discussions";
 import { useTeamPresence, useWebSocket } from "@/hooks/use-presence";
+import { useCurrentUser } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,9 +23,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { Trash2 } from "lucide-react";
 
 interface TeamDetailProps {
   teamId: number;
@@ -35,8 +47,10 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
   const { data: members } = useTeamMembers(teamId);
   const { data: discussions } = useTeamDiscussions(teamId);
   const { data: presence } = useTeamPresence(teamId);
+  const { data: currentUser } = useCurrentUser();
   const inviteTeamMember = useInviteTeamMember(teamId);
   const createDiscussion = useCreateDiscussion(teamId);
+  const deleteTeam = useDeleteTeam();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -46,6 +60,12 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [showDiscussionDialog, setShowDiscussionDialog] = useState(false);
   const [discussionTitle, setDiscussionTitle] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Check if current user is the team owner
+  const isOwner = members?.some(
+    (member) => member.userId === currentUser?.id && member.role === "owner"
+  );
 
   const handleInviteMember = async () => {
     if (!inviteEmail.trim()) {
@@ -81,15 +101,44 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
     }
   };
 
+  const handleDeleteTeam = async () => {
+    try {
+      await deleteTeam.mutateAsync(teamId);
+      setShowDeleteDialog(false);
+      toast({ 
+        title: "Success", 
+        description: "Team and all conversations deleted successfully" 
+      });
+      setLocation("/teams");
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: "Failed to delete team" 
+      });
+    }
+  };
+
   if (!team) {
     return <div>Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">{team.name}</h1>
-        <p className="text-muted-foreground">{team.description}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">{team.name}</h1>
+          <p className="text-muted-foreground">{team.description}</p>
+        </div>
+        {isOwner && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete Team
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="members" className="w-full">
@@ -294,6 +343,29 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Team Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the team
+              and all associated discussions, messages, and data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTeam}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteTeam.isPending}
+            >
+              {deleteTeam.isPending ? "Deleting..." : "Delete Team"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
