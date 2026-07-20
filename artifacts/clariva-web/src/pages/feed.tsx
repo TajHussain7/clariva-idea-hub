@@ -1797,11 +1797,14 @@ export function Feed() {
 
     setIsSearching(true);
     try {
-      const response = await fetcher("/api/feed/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery.trim() }),
-      });
+      const response = await fetcher<{ results: FeedItem[] }>(
+        "/api/feed/search",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: searchQuery.trim() }),
+        },
+      );
       setSearchResults(response.results);
     } catch (error) {
       toast({
@@ -1957,7 +1960,12 @@ export function Feed() {
           {searchResults !== null && (
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">
-                Found <span className="font-semibold text-foreground">{searchResults.length}</span> {searchResults.length === 1 ? "idea" : "ideas"} matching "{searchQuery}"
+                Found{" "}
+                <span className="font-semibold text-foreground">
+                  {searchResults.length}
+                </span>{" "}
+                {searchResults.length === 1 ? "idea" : "ideas"} matching "
+                {searchQuery}"
               </span>
             </div>
           )}
