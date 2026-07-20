@@ -10,7 +10,7 @@ export const WORKER_SCHEDULE_CONFIG = {
    * Cron schedule for weekly challenge creation
    * Format: "minute hour day-of-month month day-of-week"
    * 
-   * Current: "0 20 * * 1" = Every Monday at 8:00 PM
+   * Current: "0 23 * * 1" = Every Monday at 11:00 PM
    * 
    * Examples:
    * - "0 9 * * 1"    = Every Monday at 9:00 AM
@@ -27,12 +27,12 @@ export const WORKER_SCHEDULE_CONFIG = {
    * │ │ │ │ │
    * * * * * *
    */
-  challengeCreationSchedule: "0 20 * * 1",
+  challengeCreationSchedule: "0 23 * * 1",
 
   /**
    * Human-readable description of the schedule
    */
-  scheduleDescription: "Every Monday at 8:00 PM",
+  scheduleDescription: "Every Monday at 11:00 PM",
 
   /**
    * Timezone for the cron schedule
