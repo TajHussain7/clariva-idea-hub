@@ -42,7 +42,10 @@ export async function runWorkerCycle(): Promise<void> {
 
   try {
     const state = await checkChallengeState();
-    logger.info({ cycleId, state: state.state, reason: state.reason }, "Challenge state checked");
+    logger.info(
+      { cycleId, state: state.state, reason: state.reason },
+      "Challenge state checked",
+    );
 
     switch (state.state) {
       case "needs_winner_calculation":
@@ -67,7 +70,7 @@ export async function runWorkerCycle(): Promise<void> {
       case "active":
         logger.info(
           { cycleId, challengeId: state.challengeId },
-          "Challenge active, no action needed"
+          "Challenge active, no action needed",
         );
         break;
 
@@ -82,12 +85,12 @@ export async function runWorkerCycle(): Promise<void> {
     stats.errors++;
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
-    
+
     logger.error(
       { cycleId, error: errorMessage, stack: errorStack, stats },
-      "Worker cycle failed"
+      "Worker cycle failed",
     );
-    
+
     // Don't throw - let worker continue on next cycle
     // Critical errors will be logged and can be monitored
   }
@@ -115,7 +118,7 @@ async function handleWinnerCalculation(challengeId: number): Promise<void> {
             voteCount: winner.voteCount,
             tiebreaker: winner.tiebreaker,
           },
-          "Winner calculated and badge awarded"
+          "Winner calculated and badge awarded",
         );
 
         // Broadcast winner announcement if WebSocket available
@@ -126,20 +129,20 @@ async function handleWinnerCalculation(challengeId: number): Promise<void> {
 
       await closeChallenge(challengeId);
       await broadcastChallengeCompleted(challengeId);
-      
+
       return; // Success
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       logger.warn(
         { challengeId, attempt, maxRetries, error: lastError.message },
-        "Winner calculation attempt failed"
+        "Winner calculation attempt failed",
       );
 
       if (attempt < maxRetries) {
         // Exponential backoff: 2s, 4s, 8s
         const delayMs = Math.pow(2, attempt) * 1000;
         logger.info({ challengeId, delayMs }, "Retrying after delay");
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
   }
@@ -147,7 +150,7 @@ async function handleWinnerCalculation(challengeId: number): Promise<void> {
   // All retries failed
   logger.error(
     { challengeId, error: lastError?.message, stack: lastError?.stack },
-    "Failed to calculate winner after all retries"
+    "Failed to calculate winner after all retries",
   );
   throw lastError!;
 }
@@ -166,12 +169,18 @@ async function handleChallengeExtension(challengeId: number): Promise<void> {
     await broadcastChallengeExtended(challengeId);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    if (errorMessage.includes("already been extended") || errorMessage.includes("already extended")) {
+
+    if (
+      errorMessage.includes("already been extended") ||
+      errorMessage.includes("already extended")
+    ) {
       logger.warn({ challengeId }, "Challenge already extended, skipping");
       // Not an error - idempotent operation
     } else {
-      logger.error({ challengeId, error: errorMessage }, "Failed to extend challenge");
+      logger.error(
+        { challengeId, error: errorMessage },
+        "Failed to extend challenge",
+      );
       throw error;
     }
   }
@@ -201,15 +210,15 @@ async function handleNewChallenge(): Promise<void> {
         .where(
           and(
             sql`${weeklyChallengesTable.status} IN ('active', 'extended')`,
-            sql`${weeklyChallengesTable.ends_at} > NOW()`
-          )
+            sql`${weeklyChallengesTable.endsAt} > NOW()`,
+          ),
         )
         .limit(1);
 
       if (existing.length > 0) {
         logger.warn(
           { existingChallengeId: existing[0].id },
-          "Active challenge already exists, skipping creation"
+          "Active challenge already exists, skipping creation",
         );
         return; // Idempotent - another worker may have created it
       }
@@ -239,31 +248,34 @@ async function handleNewChallenge(): Promise<void> {
           startsAt: challenge.startsAt,
           endsAt: challenge.endsAt,
         },
-        "New challenge created successfully"
+        "New challenge created successfully",
       );
 
       // Broadcast new challenge
       await broadcastChallengeCreated(createdChallenge.id);
-      
+
       return; // Success
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      
+
       // Check if it's a duplicate key error (race condition)
-      if (lastError.message.includes("duplicate") || lastError.message.includes("unique")) {
+      if (
+        lastError.message.includes("duplicate") ||
+        lastError.message.includes("unique")
+      ) {
         logger.warn("Duplicate challenge detected, skipping creation");
         return; // Idempotent
       }
 
       logger.warn(
         { attempt, maxRetries, error: lastError.message },
-        "Challenge creation attempt failed"
+        "Challenge creation attempt failed",
       );
 
       if (attempt < maxRetries) {
         const delayMs = Math.pow(2, attempt) * 1000;
         logger.info({ delayMs }, "Retrying after delay");
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
     }
   }
@@ -271,7 +283,7 @@ async function handleNewChallenge(): Promise<void> {
   // All retries failed
   logger.error(
     { error: lastError?.message, stack: lastError?.stack },
-    "Failed to create new challenge after all retries"
+    "Failed to create new challenge after all retries",
   );
   throw lastError!;
 }
@@ -282,7 +294,7 @@ async function handleNewChallenge(): Promise<void> {
  */
 async function broadcastWinnerAnnouncement(
   challengeId: number,
-  winnerId: number
+  winnerId: number,
 ): Promise<void> {
   try {
     // Import dynamically to avoid circular dependencies
@@ -293,7 +305,10 @@ async function broadcastWinnerAnnouncement(
     });
     logger.info({ challengeId, winnerId }, "Winner announcement broadcast");
   } catch (error) {
-    logger.error({ error, challengeId }, "Failed to broadcast winner announcement");
+    logger.error(
+      { error, challengeId },
+      "Failed to broadcast winner announcement",
+    );
     // Non-critical error, don't throw
   }
 }

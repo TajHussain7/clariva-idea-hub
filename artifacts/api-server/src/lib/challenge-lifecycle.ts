@@ -3,7 +3,7 @@ import {
   weeklyChallengesTable,
   challengeSubmissionsTable,
 } from "@workspace/db/schema";
-import { eq, and, lt, gte, sql } from "drizzle-orm";
+import { eq, and, lt, lte, gte, sql } from "drizzle-orm";
 import { logger } from "./logger.js";
 
 export type ChallengeState =
@@ -34,8 +34,8 @@ export async function checkChallengeState(): Promise<ChallengeStateResult> {
       and(
         sql`${weeklyChallengesTable.status} IN ('active', 'extended')`,
         lte(weeklyChallengesTable.startsAt, now),
-        gte(weeklyChallengesTable.endsAt, now)
-      )
+        gte(weeklyChallengesTable.endsAt, now),
+      ),
     )
     .orderBy(sql`${weeklyChallengesTable.createdAt} DESC`)
     .limit(1);
@@ -56,7 +56,7 @@ export async function checkChallengeState(): Promise<ChallengeStateResult> {
       if (submissionCount[0].count === 0) {
         logger.info(
           { challengeId: challenge.id, hoursUntilEnd },
-          "Challenge needs extension - no submissions within 24h of end"
+          "Challenge needs extension - no submissions within 24h of end",
         );
         return {
           state: "needs_extension",
@@ -81,8 +81,8 @@ export async function checkChallengeState(): Promise<ChallengeStateResult> {
     .where(
       and(
         lt(weeklyChallengesTable.endsAt, now),
-        eq(weeklyChallengesTable.winnerCalculated, false)
-      )
+        eq(weeklyChallengesTable.winnerCalculated, false),
+      ),
     )
     .orderBy(sql`${weeklyChallengesTable.endsAt} DESC`)
     .limit(1);
@@ -90,7 +90,7 @@ export async function checkChallengeState(): Promise<ChallengeStateResult> {
   if (expiredChallenge.length > 0) {
     logger.info(
       { challengeId: expiredChallenge[0].id },
-      "Challenge needs winner calculation"
+      "Challenge needs winner calculation",
     );
     return {
       state: "needs_winner_calculation",
@@ -113,7 +113,7 @@ export async function checkChallengeState(): Promise<ChallengeStateResult> {
  */
 export async function extendChallenge(
   challengeId: number,
-  extensionDays: number = 2
+  extensionDays: number = 2,
 ): Promise<void> {
   logger.info({ challengeId, extensionDays }, "Attempting to extend challenge");
 
@@ -165,13 +165,16 @@ export async function extendChallenge(
       .where(
         and(
           eq(weeklyChallengesTable.id, challengeId),
-          eq(weeklyChallengesTable.status, "active") // Optimistic lock
-        )
+          eq(weeklyChallengesTable.status, "active"), // Optimistic lock
+        ),
       )
       .returning();
 
     if (result.length === 0) {
-      logger.warn({ challengeId }, "Challenge state changed during extension, skipping");
+      logger.warn(
+        { challengeId },
+        "Challenge state changed during extension, skipping",
+      );
       return; // Race condition - another process may have extended it
     }
 
@@ -182,7 +185,7 @@ export async function extendChallenge(
         newEnd: newEndsAt,
         extensionDays,
       },
-      "Challenge extended successfully"
+      "Challenge extended successfully",
     );
   } catch (error) {
     logger.error({ challengeId, error }, "Failed to extend challenge");
@@ -207,8 +210,8 @@ export async function closeChallenge(challengeId: number): Promise<void> {
       .where(
         and(
           eq(weeklyChallengesTable.id, challengeId),
-          sql`${weeklyChallengesTable.status} IN ('active', 'extended')` // Only close if not already completed
-        )
+          sql`${weeklyChallengesTable.status} IN ('active', 'extended')`, // Only close if not already completed
+        ),
       )
       .returning();
 
@@ -229,7 +232,7 @@ export async function closeChallenge(challengeId: number): Promise<void> {
  * Returns domains from last N challenges
  */
 export async function getRecentChallengeDomains(
-  count: number = 3
+  count: number = 3,
 ): Promise<string[]> {
   const recentChallenges = await db
     .select()
@@ -242,13 +245,4 @@ export async function getRecentChallengeDomains(
   // or parse from description. Let's return empty array for now
   // and enhance this later
   return [];
-}
-
-// Helper function for drizzle-orm comparisons
-function lte(column: any, value: any) {
-  return sql`${column} <= ${value}`;
-}
-
-function gte(column: any, value: any) {
-  return sql`${column} >= ${value}`;
 }
