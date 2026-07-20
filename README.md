@@ -1,14 +1,42 @@
+<div align="center">
+
 # Clariva — AI-Powered Idea Validation Platform
 
-<p align="center">
-  <strong>Validate your startup ideas before you build. Kill bad bets. Ship with confidence.</strong>
-</p>
+**Validate your startup ideas before you build. Kill bad bets. Ship with confidence.**
 
-<p align="center">
-  <a href="https://clariva-idea-hub-clariva-web.vercel.app/" target="_blank">
-    <img src="https://img.shields.io/badge/Live-clariva--idea--hub.vercel.app-4f46e5?style=for-the-badge&logo=vercel" alt="Live URL" />
-  </a>
-</p>
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Clariva-4f46e5?style=for-the-badge&logo=vercel&logoColor=white)](https://clariva-idea-hub-clariva-web.vercel.app/)
+
+---
+
+<!--
+  TODO: Add project banner/hero image here
+  Recommended: Screenshot of main dashboard or landing page
+  Image path: ./docs/images/clariva-hero.png
+-->
+
+_Structured AI analysis for entrepreneurs who need fast, objective feedback on their ideas._
+
+</div>
+
+---
+
+## ⚡ What is Clariva?
+
+**Clariva** is a production-ready **AI-powered idea validation platform** that helps entrepreneurs, product teams, and startup founders evaluate their ideas before investing time or capital. It provides structured analysis across multiple dimensions, competitive intelligence, and actionable recommendations — all in under a minute.
+
+```
+User Idea  →  [ Clariva Analysis Engine ]  →  Structured Report
+
+                      ↓
+            ┌─────────────────────────┐
+            │  OpenRouter AI Models    │  ← Multi-model routing
+            │  GitHub API Scanner      │  ← Competitive analysis
+            │  Web Search Integration  │  ← Market context
+            │  Scoring Algorithm       │  ← 5-dimension evaluation
+            └─────────────────────────┘
+                      ↓
+              Analysis Report with Scores & Insights
+```
 
 ---
 
@@ -48,6 +76,257 @@ Most startup ideas fail not because of poor execution, but because of poor valid
 | **Package Manager** | pnpm Workspaces (monorepo)                                                                             |
 | **Deployment**      | Vercel (frontend), Render (backend), Docker                                                            |
 | **CI/CD**           | GitHub Actions (build, typecheck, Docker push, Render deploy hook)                                     |
+
+---
+
+## 🎨 Application Flow
+
+<!--
+  TODO: Add application flow diagram here
+  Recommended: User journey flowchart showing key interactions
+  Image path: ./docs/images/application-flow.png
+-->
+
+### User Journey
+
+```
+1. Registration/Login
+   └─> Session-based authentication with bcrypt
+
+2. Dashboard
+   ├─> View all ideas (pending, processing, analyzed, failed)
+   ├─> Submit new idea
+   ├─> Compare ideas
+   └─> View AI insights
+
+3. Idea Submission
+   ├─> Enter title, description, domain, complexity
+   └─> Trigger background analysis
+
+4. AI Analysis Pipeline
+   ├─> OpenRouter API analysis (multi-model)
+   ├─> GitHub repository scanning
+   ├─> Web search for market context
+   └─> Generate 5-dimension scores + insights
+
+5. Results & Actions
+   ├─> View detailed analysis report
+   ├─> Generate pivot suggestions (if low score)
+   ├─> Export to PDF
+   ├─> Share to team
+   └─> Publish to public feed
+
+6. Team Collaboration
+   ├─> Create/join teams
+   ├─> Share ideas with team members
+   ├─> Real-time discussions
+   └─> Live presence indicators
+
+7. Weekly Challenges
+   ├─> View active challenges
+   ├─> Submit challenge entries
+   ├─> Vote on submissions
+   └─> Win badges
+```
+
+### Real-Time Features
+
+- **WebSocket connections** for live updates
+- **Presence indicators** showing active team members
+- **Challenge notifications** for new competitions and winners
+- **Vote updates** broadcast in real-time
+
+---
+
+## 🗄️ Database Structure
+
+Clariva uses **PostgreSQL** (via Supabase) with **Drizzle ORM** for type-safe database operations.
+
+<!--
+  TODO: Add database schema diagram here
+  Recommended: Entity-relationship diagram showing table relationships
+  Image path: ./docs/images/database-schema.png
+-->
+
+### Core Tables
+
+| Table                     | Purpose                     | Key Fields                                                                                                                                                            |
+| ------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **users**                 | User accounts & profiles    | `id`, `email`, `passwordHash`, `name`, `theme`, `notifications`, `isAdmin`                                                                                            |
+| **ideas**                 | User-submitted ideas        | `id`, `userId`, `title`, `description`, `domain`, `complexity`, `status`                                                                                              |
+| **analyses**              | AI analysis results         | `ideaId`, `uniquenessScore`, `feasibilityScore`, `impactScore`, `innovationScore`, `overallScore`, `strengths`, `weaknesses`, `risks`, `githubRepos`, `marketContext` |
+| **teams**                 | Collaboration teams         | `id`, `name`, `description`, `ownerId`                                                                                                                                |
+| **team_members**          | Team membership             | `teamId`, `userId`, `role`                                                                                                                                            |
+| **team_ideas**            | Ideas shared with teams     | `teamId`, `ideaId`                                                                                                                                                    |
+| **public_ideas**          | Ideas shared to public feed | `ideaId`, `userId`, `isAnonymous`                                                                                                                                     |
+| **weekly_challenges**     | AI-generated competitions   | `id`, `title`, `description`, `startsAt`, `endsAt`, `status`, `winnerCalculated`                                                                                      |
+| **challenge_submissions** | Challenge entries           | `challengeId`, `userId`, `ideaId`                                                                                                                                     |
+| **challenge_votes**       | Community voting            | `submissionId`, `userId`                                                                                                                                              |
+| **notifications**         | User notifications          | `userId`, `type`, `title`, `body`, `targetPath`, `isRead`                                                                                                             |
+| **user_badges**           | Achievement badges          | `userId`, `badgeType`, `awardedAt`                                                                                                                                    |
+
+### Database Relationships
+
+```
+users (1) ──< (N) ideas
+ideas (1) ──< (1) analyses
+users (1) ──< (N) teams (as owner)
+teams (1) ──< (N) team_members ──> (1) users
+teams (1) ──< (N) team_ideas ──> (1) ideas
+ideas (1) ──< (1) public_ideas
+weekly_challenges (1) ──< (N) challenge_submissions ──> (1) ideas
+challenge_submissions (1) ──< (N) challenge_votes ──> (1) users
+users (1) ──< (N) notifications
+users (1) ──< (N) user_badges
+```
+
+### Key Database Features
+
+- **Cascade deletes** ensure data integrity when users or ideas are removed
+- **Unique constraints** prevent duplicate submissions and votes
+- **JSONB fields** store complex structured data (scores, strengths, weaknesses)
+- **Timestamp tracking** with automatic `updatedAt` on every modification
+- **Session store** for secure authentication persistence
+
+---
+
+## 🏗️ System Architecture
+
+<!--
+  TODO: Add system architecture diagram here
+  Recommended: High-level architecture showing frontend, backend, database, and external services
+  Image path: ./docs/images/system-architecture.png
+-->
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        CLIENT LAYER                              │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │  React 18 + TypeScript + Vite                          │    │
+│  │  - TanStack Query (data fetching & caching)            │    │
+│  │  - Wouter (routing)                                    │    │
+│  │  - Tailwind CSS v4 + Radix UI (styling)               │    │
+│  │  - Framer Motion (animations)                          │    │
+│  │  - Recharts (data visualization)                       │    │
+│  │  - WebSocket client (real-time updates)               │    │
+│  └────────────────────────────────────────────────────────┘    │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ HTTPS/WSS
+┌───────────────────────────▼─────────────────────────────────────┐
+│                        API LAYER                                 │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │  Node.js + Express + TypeScript                        │    │
+│  │  - REST API routes                                     │    │
+│  │  - WebSocket server (express-ws)                       │    │
+│  │  - Session-based authentication                        │    │
+│  │  - Pino logger                                         │    │
+│  │  - Background workers (challenge lifecycle)            │    │
+│  └────────────────────────────────────────────────────────┘    │
+└──────────┬─────────────────┬────────────────┬───────────────────┘
+           │                 │                │
+┌──────────▼─────────┐ ┌────▼──────────┐ ┌──▼─────────────────┐
+│   DATABASE LAYER   │ │  AI SERVICES  │ │  EXTERNAL APIs     │
+│                    │ │               │ │                    │
+│  PostgreSQL        │ │  OpenRouter   │ │  GitHub API        │
+│  (Supabase)        │ │  Multi-model  │ │  Repository scan   │
+│                    │ │  AI routing   │ │  Search APIs       │
+│  - Drizzle ORM     │ │               │ │                    │
+│  - Type safety     │ │  Models:      │ │                    │
+│  - Migrations      │ │  - GPT-4      │ │                    │
+│                    │ │  - Claude     │ │                    │
+│                    │ │  - Gemini     │ │                    │
+└────────────────────┘ └───────────────┘ └────────────────────┘
+```
+
+### Monorepo Structure
+
+```
+Clariva/
+├── 📁 artifacts/
+│   ├── api-server/          # Backend Express application
+│   │   ├── src/
+│   │   │   ├── routes/      # REST API endpoints
+│   │   │   ├── middlewares/ # Auth, team-auth, admin-auth
+│   │   │   ├── lib/         # Analysis pipeline, email, notifications
+│   │   │   └── workers/     # Background challenge worker
+│   │   └── Dockerfile
+│   │
+│   └── clariva-web/         # Frontend React application
+│       ├── src/
+│       │   ├── pages/       # Route components
+│       │   ├── components/  # Reusable UI components
+│       │   └── lib/         # API client, utilities
+│       └── public/
+│
+├── 📁 lib/
+│   ├── api-client-react/    # Type-safe React Query hooks
+│   ├── api-spec/            # OpenAPI specification
+│   ├── api-zod/             # Shared Zod schemas
+│   ├── db/                  # Database schema & Drizzle config
+│   └── integrations-openrouter-ai/  # AI service integration
+│
+├── 📁 scripts/              # Utility scripts
+├── 📁 .github/workflows/    # CI/CD pipelines
+├── docker-compose.yml       # Local development setup
+├── pnpm-workspace.yaml      # Monorepo configuration
+└── README.md
+```
+
+### Data Flow: Idea Analysis
+
+```
+1. User submits idea via frontend form
+   └─> POST /api/ideas
+
+2. Backend creates idea record (status: "pending")
+   └─> Stores in PostgreSQL
+   └─> Returns idea ID to frontend
+
+3. Frontend starts polling for analysis status
+   └─> GET /api/ideas/:id
+
+4. Background analysis pipeline starts:
+   ├─> Analyzer extracts domain-specific context
+   ├─> GitHub scanner searches for similar repos
+   ├─> OpenRouter API generates 5-dimension analysis
+   └─> Updates idea status: "processing" → "analyzed"
+
+5. Frontend receives completed analysis
+   └─> Displays scores, insights, and recommendations
+   └─> Enables PDF export and sharing options
+```
+
+### Real-Time Communication Flow
+
+```
+1. User connects to WebSocket
+   └─> wss://api-domain/ws
+
+2. Backend authenticates via session
+   └─> Stores connection in active connections map
+
+3. Events broadcast to connected clients:
+   ├─> New challenge created
+   ├─> Challenge extended
+   ├─> Challenge winner announced
+   ├─> Vote cast on submission
+   └─> Team presence updates
+
+4. Frontend updates UI reactively
+   └─> No page refresh required
+```
+
+### Deployment Architecture
+
+| Component       | Platform                 | Purpose                                         |
+| --------------- | ------------------------ | ----------------------------------------------- |
+| **Frontend**    | Vercel                   | Static hosting with CDN, automatic deployments  |
+| **Backend API** | Render                   | Node.js server, WebSocket support, auto-scaling |
+| **Database**    | Supabase                 | Managed PostgreSQL with connection pooling      |
+| **Worker**      | Render Background Worker | Automated challenge lifecycle management        |
+| **CI/CD**       | GitHub Actions           | Automated build, typecheck, deploy on push      |
 
 ---
 
@@ -115,7 +394,92 @@ Clariva addresses both gaps by providing a **structured, reproducible, automated
 
 ---
 
-## 🚀 Getting Started (Local Development)
+## 📦 Project Structure
+
+```
+Clariva/
+├── 📁 artifacts/
+│   ├── api-server/                     # Backend Express application
+│   │   ├── src/
+│   │   │   ├── app.ts                  # Express app configuration
+│   │   │   ├── index.ts                # Server entry point
+│   │   │   ├── routes/                 # API endpoints
+│   │   │   │   ├── auth.ts             # Authentication routes
+│   │   │   │   ├── ideas.ts            # Idea CRUD operations
+│   │   │   │   ├── challenges.ts       # Weekly challenge routes
+│   │   │   │   ├── teams.ts            # Team management
+│   │   │   │   ├── notifications.ts    # Notification system
+│   │   │   │   ├── public-feed.ts      # Public idea feed
+│   │   │   │   └── ws.ts               # WebSocket handlers
+│   │   │   ├── middlewares/
+│   │   │   │   ├── auth.ts             # User authentication
+│   │   │   │   ├── team-auth.ts        # Team authorization
+│   │   │   │   └── admin-auth.ts       # Admin-only access
+│   │   │   ├── lib/
+│   │   │   │   ├── pipeline/           # AI analysis pipeline
+│   │   │   │   ├── email.ts            # Email service
+│   │   │   │   ├── notify.ts           # Notification system
+│   │   │   │   └── challenge-lifecycle.ts
+│   │   │   └── workers/
+│   │   │       └── challenge-worker.ts # Automated challenge management
+│   │   ├── Dockerfile                  # Container configuration
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   └── clariva-web/                    # Frontend React application
+│       ├── src/
+│       │   ├── pages/                  # Route components
+│       │   │   ├── home.tsx
+│       │   │   ├── dashboard.tsx
+│       │   │   ├── idea-detail.tsx
+│       │   │   ├── comparison.tsx
+│       │   │   ├── challenges.tsx
+│       │   │   ├── teams.tsx
+│       │   │   └── settings.tsx
+│       │   ├── components/             # Reusable components
+│       │   │   ├── ui/                 # Radix UI wrappers
+│       │   │   ├── idea-card.tsx
+│       │   │   ├── analysis-chart.tsx
+│       │   │   └── team-presence.tsx
+│       │   └── lib/
+│       │       ├── api.ts              # API client
+│       │       └── websocket.ts        # WebSocket client
+│       ├── public/
+│       │   ├── favicon.ico
+│       │   └── logo.svg
+│       ├── package.json
+│       └── vite.config.ts
+│
+├── 📁 lib/                             # Shared libraries (pnpm workspace)
+│   ├── api-client-react/               # Type-safe React Query hooks
+│   │   └── src/generated/
+│   ├── api-spec/                       # OpenAPI specification
+│   │   └── openapi.yaml
+│   ├── api-zod/                        # Shared Zod validation schemas
+│   │   └── src/schemas/
+│   ├── db/                             # Database layer
+│   │   ├── src/schema/                 # Drizzle table definitions
+│   │   │   ├── users.ts
+│   │   │   ├── ideas.ts
+│   │   │   ├── analyses.ts
+│   │   │   ├── teams.ts
+│   │   │   ├── weekly-challenges.ts
+│   │   │   └── [22 total schema files]
+│   │   ├── drizzle.config.ts
+│   │   └── package.json
+│   └── integrations-openrouter-ai/     # AI service wrapper
+│
+├── 📁 scripts/                         # Automation scripts
+├── 📁 .github/workflows/               # CI/CD pipelines
+│   ├── ci.yml                          # Build & typecheck
+│   └── deploy.yml                      # Deployment automation
+├── docker-compose.yml                  # Local development orchestration
+├── pnpm-workspace.yaml                 # Monorepo workspace definition
+├── .env.example                        # Environment variable template
+└── README.md
+```
+
+---
 
 ### Prerequisites
 
