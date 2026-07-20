@@ -20,6 +20,9 @@ import { Feed } from "@/pages/feed";
 import { Challenges } from "@/pages/challenges";
 import { Notifications } from "@/pages/notifications";
 import { Help } from "@/pages/help";
+import { VerifyEmail } from "@/pages/verify-email";
+import { ForgotPassword } from "@/pages/forgot-password";
+import { ResetPassword } from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -46,6 +49,9 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/auth" component={Auth} />
+      <Route path="/verify-email" component={VerifyEmail} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/dashboard">
         <Layout>
           <Dashboard />

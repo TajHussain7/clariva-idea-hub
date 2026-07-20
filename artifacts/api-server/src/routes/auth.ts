@@ -12,6 +12,7 @@ import {
   ChangePasswordBody,
   DeleteMeBody,
 } from "@workspace/api-zod";
+import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email.js";
 
 const router: IRouter = Router();
 const SALT_ROUNDS = 12;
@@ -103,6 +104,10 @@ router.post(
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    
+    // Generate verification token (expires in 24 hours)
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const [user] = await db
       .insert(usersTable)
@@ -111,14 +116,28 @@ router.post(
         passwordHash,
         name,
         domain: domain ?? null,
+        emailVerified: false,
+        verificationToken,
+        verificationTokenExpiry,
       })
       .returning();
 
-    req.session.userId = user.id;
+    // Send verification email
+    const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+    const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
+    
+    sendVerificationEmail({
+      toEmail: user.email,
+      userName: user.name,
+      verificationLink,
+    }).catch((err) => {
+      console.error("[email] Failed to send verification email:", err);
+    });
 
+    // Don't create session immediately - require email verification first
     res.status(201).json({
-      ...toAuthUser(user),
-      token: getSessionToken(req),
+      message: "Registration successful! Please check your email to verify your account.",
+      emailSent: true,
     });
   },
 );
@@ -148,6 +167,15 @@ router.post("/auth/login", loginLimiter, async (req, res): Promise<void> => {
     return;
   }
 
+  // Check if email is verified
+  if (!user.emailVerified) {
+    res.status(403).json({ 
+      error: "Please verify your email address before logging in. Check your inbox for the verification link.",
+      emailNotVerified: true,
+    });
+    return;
+  }
+
   req.session.userId = user.id;
 
   res.json({
@@ -160,6 +188,189 @@ router.post("/auth/logout", (req, res): void => {
   req.session.destroy(() => {
     res.sendStatus(204);
   });
+});
+
+// Verify email with token
+router.post("/auth/verify-email", async (req, res): Promise<void> => {
+  const { token } = req.body;
+
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "Verification token is required" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.verificationToken, token));
+
+  if (!user) {
+    res.status(400).json({ error: "Invalid or expired verification token" });
+    return;
+  }
+
+  // Check if token expired
+  if (user.verificationTokenExpiry && user.verificationTokenExpiry < new Date()) {
+    res.status(400).json({ error: "Verification token has expired. Please request a new one." });
+    return;
+  }
+
+  // Mark email as verified
+  await db
+    .update(usersTable)
+    .set({
+      emailVerified: true,
+      verificationToken: null,
+      verificationTokenExpiry: null,
+    })
+    .where(eq(usersTable.id, user.id));
+
+  res.json({ message: "Email verified successfully! You can now log in." });
+});
+
+// Resend verification email
+router.post("/auth/resend-verification", async (req, res): Promise<void> => {
+  const { email } = req.body;
+
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase()));
+
+  if (!user) {
+    // Don't reveal if email exists or not
+    res.json({ message: "If an account with that email exists and is unverified, a verification email has been sent." });
+    return;
+  }
+
+  if (user.emailVerified) {
+    res.status(400).json({ error: "Email is already verified" });
+    return;
+  }
+
+  // Generate new verification token
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+  const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await db
+    .update(usersTable)
+    .set({
+      verificationToken,
+      verificationTokenExpiry,
+    })
+    .where(eq(usersTable.id, user.id));
+
+  // Send verification email
+  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+  const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
+  
+  sendVerificationEmail({
+    toEmail: user.email,
+    userName: user.name,
+    verificationLink,
+  }).catch((err) => {
+    console.error("[email] Failed to resend verification email:", err);
+  });
+
+  res.json({ message: "Verification email sent. Please check your inbox." });
+});
+
+// Request password reset
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  const { email } = req.body;
+
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase()));
+
+  if (!user) {
+    // Don't reveal if email exists or not (security best practice)
+    res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+    return;
+  }
+
+  // Generate reset token (expires in 1 hour)
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await db
+    .update(usersTable)
+    .set({
+      verificationToken: resetToken, // Reusing the same column for simplicity
+      verificationTokenExpiry: resetTokenExpiry,
+    })
+    .where(eq(usersTable.id, user.id));
+
+  // Send reset email
+  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+  const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+  
+  sendPasswordResetEmail({
+    toEmail: user.email,
+    userName: user.name,
+    resetLink,
+  }).catch((err) => {
+    console.error("[email] Failed to send password reset email:", err);
+  });
+
+  res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+});
+
+// Reset password with token
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { token, newPassword } = req.body;
+
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "Reset token is required" });
+    return;
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.verificationToken, token));
+
+  if (!user) {
+    res.status(400).json({ error: "Invalid or expired reset token" });
+    return;
+  }
+
+  // Check if token expired
+  if (user.verificationTokenExpiry && user.verificationTokenExpiry < new Date()) {
+    res.status(400).json({ error: "Reset token has expired. Please request a new one." });
+    return;
+  }
+
+  // Hash new password
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+  // Update password and clear token
+  await db
+    .update(usersTable)
+    .set({
+      passwordHash,
+      verificationToken: null,
+      verificationTokenExpiry: null,
+    })
+    .where(eq(usersTable.id, user.id));
+
+  res.json({ message: "Password reset successfully! You can now log in with your new password." });
 });
 
 router.get("/auth/me", async (req, res): Promise<void> => {
