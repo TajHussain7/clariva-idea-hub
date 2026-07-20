@@ -58,6 +58,23 @@ function toAuthUser(user: typeof usersTable.$inferSelect) {
   };
 }
 
+function resolveFrontendUrl(): string {
+  const configuredUrl =
+    process.env.FRONTEND_URL?.trim() ??
+    process.env.CORS_ORIGIN?.split(",")[0]?.trim();
+
+  if (process.env.NODE_ENV === "production") {
+    if (!configuredUrl) {
+      throw new Error(
+        "FRONTEND_URL or CORS_ORIGIN must be configured in production",
+      );
+    }
+    return configuredUrl;
+  }
+
+  return configuredUrl ?? "http://localhost:5173";
+}
+
 // Limit login attempts: max 10 attempts per 15 minutes per IP
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -122,11 +139,7 @@ router.post(
       })
       .returning();
 
-    // Send verification email. Prefer explicit FRONTEND_URL, then CORS_ORIGIN, then localhost for dev.
-    const frontendUrl =
-      process.env.FRONTEND_URL ??
-      process.env.CORS_ORIGIN?.split(",")[0] ??
-      "http://localhost:5173";
+    const frontendUrl = resolveFrontendUrl();
     const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
     sendVerificationEmail({
@@ -219,11 +232,9 @@ router.post("/auth/verify-email", async (req, res): Promise<void> => {
     user.verificationTokenExpiry &&
     user.verificationTokenExpiry < new Date()
   ) {
-    res
-      .status(400)
-      .json({
-        error: "Verification token has expired. Please request a new one.",
-      });
+    res.status(400).json({
+      error: "Verification token has expired. Please request a new one.",
+    });
     return;
   }
 
@@ -280,11 +291,7 @@ router.post("/auth/resend-verification", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, user.id));
 
-  // Send verification email. Prefer explicit FRONTEND_URL, then CORS_ORIGIN, then localhost for dev.
-  const frontendUrl =
-    process.env.FRONTEND_URL ??
-    process.env.CORS_ORIGIN?.split(",")[0] ??
-    "http://localhost:5173";
+  const frontendUrl = resolveFrontendUrl();
   const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
   sendVerificationEmail({
@@ -333,11 +340,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, user.id));
 
-  // Send reset email. Prefer explicit FRONTEND_URL, then CORS_ORIGIN, then localhost for dev.
-  const frontendUrl =
-    process.env.FRONTEND_URL ??
-    process.env.CORS_ORIGIN?.split(",")[0] ??
-    "http://localhost:5173";
+  const frontendUrl = resolveFrontendUrl();
   const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
   sendPasswordResetEmail({
