@@ -18,7 +18,11 @@ import {
   Zap,
   ArrowRight,
 } from "lucide-react";
-import { useLogin, useRegister, setAuthTokenGetter } from "@workspace/api-client-react";
+import {
+  useLogin,
+  useRegister,
+  setAuthTokenGetter,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -161,17 +165,20 @@ export function Auth() {
   return (
     <div className="min-h-screen flex">
       {/* ===== Left Brand Panel ===== */}
-      <div
-        className="hidden lg:flex lg:w-[52%] xl:w-[55%] flex-col justify-between p-10 xl:p-14 relative overflow-hidden pi-brand-panel"
-      >
+      <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] flex-col justify-between p-10 xl:p-14 relative overflow-hidden pi-brand-panel">
         {/* Decorative blobs */}
         <div
           className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-3xl opacity-20 pointer-events-none"
-          style={{ background: "radial-gradient(circle, #57dffe 0%, #3525cd 60%, transparent 100%)" }}
+          style={{
+            background:
+              "radial-gradient(circle, #57dffe 0%, #3525cd 60%, transparent 100%)",
+          }}
         />
         <div
           className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-3xl opacity-15 pointer-events-none"
-          style={{ background: "radial-gradient(circle, #4f46e5 0%, transparent 70%)" }}
+          style={{
+            background: "radial-gradient(circle, #4f46e5 0%, transparent 70%)",
+          }}
         />
 
         {/* Logo */}
@@ -183,8 +190,12 @@ export function Auth() {
             <Sparkles className="w-5 h-5" style={{ color: "#0D0C22" }} />
           </div>
           <div>
-            <span className="text-2xl font-black text-white tracking-tight">Clariva</span>
-            <p className="text-xs text-slate-400 font-medium tracking-wide">AI-Powered SaaS</p>
+            <span className="text-2xl font-black text-white tracking-tight">
+              Clariva
+            </span>
+            <p className="text-xs text-slate-400 font-medium tracking-wide">
+              AI-Powered SaaS
+            </p>
           </div>
         </div>
 
@@ -199,7 +210,8 @@ export function Auth() {
               Ship with Confidence.
             </h2>
             <p className="mt-5 text-slate-300 text-lg leading-relaxed max-w-md">
-              Clariva's AI engine gives your startup hypothesis a brutal, honest evaluation before you spend a single hour building.
+              Clariva's AI engine gives your startup hypothesis a brutal, honest
+              evaluation before you spend a single hour building.
             </p>
           </div>
 
@@ -209,13 +221,18 @@ export function Auth() {
               <div key={f.title} className="flex items-start gap-3">
                 <div
                   className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                  style={{ backgroundColor: "rgba(87,223,254,0.12)", border: "1px solid rgba(87,223,254,0.2)" }}
+                  style={{
+                    backgroundColor: "rgba(87,223,254,0.12)",
+                    border: "1px solid rgba(87,223,254,0.2)",
+                  }}
                 >
                   <f.icon className="w-4 h-4" style={{ color: "#57dffe" }} />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">{f.title}</p>
-                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{f.desc}</p>
+                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                    {f.desc}
+                  </p>
                 </div>
               </div>
             ))}
@@ -236,7 +253,8 @@ export function Auth() {
             ))}
           </div>
           <p className="text-xs text-slate-400">
-            <span className="text-white font-semibold">1,200+ founders</span> already validating their ideas
+            <span className="text-white font-semibold">1,200+ founders</span>{" "}
+            already validating their ideas
           </p>
         </div>
       </div>
@@ -272,10 +290,16 @@ export function Auth() {
 
           <Tabs defaultValue={defaultTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-7 bg-muted rounded-lg p-1">
-              <TabsTrigger value="login" className="rounded-md font-semibold text-sm">
+              <TabsTrigger
+                value="login"
+                className="rounded-md font-semibold text-sm"
+              >
                 Sign In
               </TabsTrigger>
-              <TabsTrigger value="register" className="rounded-md font-semibold text-sm">
+              <TabsTrigger
+                value="register"
+                className="rounded-md font-semibold text-sm"
+              >
                 Create Account
               </TabsTrigger>
             </TabsList>
@@ -283,13 +307,18 @@ export function Auth() {
             {/* ===== Login Tab ===== */}
             <TabsContent value="login">
               <Form {...loginForm}>
-                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+                <form
+                  onSubmit={loginForm.handleSubmit(onLogin)}
+                  className="space-y-4"
+                >
                   <FormField
                     control={loginForm.control}
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium">Email Address</FormLabel>
+                        <FormLabel className="text-sm font-medium">
+                          Email Address
+                        </FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
@@ -312,7 +341,9 @@ export function Auth() {
                     render={({ field }) => (
                       <FormItem>
                         <div className="flex items-center justify-between">
-                          <FormLabel className="text-sm font-medium">Password</FormLabel>
+                          <FormLabel className="text-sm font-medium">
+                            Password
+                          </FormLabel>
                           <button
                             type="button"
                             className="text-xs text-primary hover:underline font-medium"
@@ -332,7 +363,9 @@ export function Auth() {
                             />
                             <button
                               type="button"
-                              onClick={() => setShowLoginPassword(!showLoginPassword)}
+                              onClick={() =>
+                                setShowLoginPassword(!showLoginPassword)
+                              }
                               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
                             >
                               {showLoginPassword ? (
@@ -365,7 +398,9 @@ export function Auth() {
                   {/* OR divider */}
                   <div className="relative py-2 flex items-center">
                     <div className="flex-grow border-t border-border" />
-                    <span className="flex-shrink mx-4 text-xs font-semibold text-muted-foreground">OR</span>
+                    <span className="flex-shrink mx-4 text-xs font-semibold text-muted-foreground">
+                      OR
+                    </span>
                     <div className="flex-grow border-t border-border" />
                   </div>
 
@@ -374,11 +409,27 @@ export function Auth() {
                     type="button"
                     className="w-full h-10 flex items-center justify-center gap-2.5 border border-border rounded-lg bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors active:scale-[0.98]"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    <svg
+                      className="w-4 h-4"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        fill="#4285F4"
+                      />
+                      <path
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        fill="#34A853"
+                      />
+                      <path
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        fill="#FBBC05"
+                      />
+                      <path
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        fill="#EA4335"
+                      />
                     </svg>
                     Continue with Google
                   </button>
@@ -389,18 +440,23 @@ export function Auth() {
             {/* ===== Register Tab ===== */}
             <TabsContent value="register">
               <Form {...registerForm}>
-                <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
+                <form
+                  onSubmit={registerForm.handleSubmit(onRegister)}
+                  className="space-y-4"
+                >
                   <FormField
                     control={registerForm.control}
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium">Full Name</FormLabel>
+                        <FormLabel className="text-sm font-medium">
+                          Full Name
+                        </FormLabel>
                         <FormControl>
                           <div className="relative">
                             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
                             <Input
-                              placeholder="Alex Chen"
+                              placeholder="Tajamal Hussain"
                               {...field}
                               data-testid="input-register-name"
                               className="pl-10 h-10 border-border focus-visible:ring-primary/30 focus-visible:border-primary"
@@ -416,7 +472,9 @@ export function Auth() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium">Email Address</FormLabel>
+                        <FormLabel className="text-sm font-medium">
+                          Email Address
+                        </FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
@@ -438,7 +496,9 @@ export function Auth() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-medium">Password</FormLabel>
+                        <FormLabel className="text-sm font-medium">
+                          Password
+                        </FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
@@ -472,7 +532,9 @@ export function Auth() {
                               <div
                                 key={i}
                                 className={`flex items-center gap-1.5 text-xs transition-colors duration-200 ${
-                                  req.met ? "text-emerald-500 font-medium" : "text-muted-foreground"
+                                  req.met
+                                    ? "text-emerald-500 font-medium"
+                                    : "text-muted-foreground"
                                 }`}
                               >
                                 {req.met ? (
@@ -495,7 +557,9 @@ export function Auth() {
                       <FormItem>
                         <FormLabel className="text-sm font-medium">
                           Industry Domain{" "}
-                          <span className="text-muted-foreground font-normal">(optional)</span>
+                          <span className="text-muted-foreground font-normal">
+                            (optional)
+                          </span>
                         </FormLabel>
                         <FormControl>
                           <Input
@@ -532,14 +596,25 @@ export function Auth() {
           <div className="mt-6 pt-5 border-t border-border text-center space-y-3">
             <p className="text-xs text-muted-foreground">
               By continuing, you agree to our{" "}
-              <span className="text-primary font-medium hover:underline cursor-pointer">Terms of Service</span>{" "}
+              <span className="text-primary font-medium hover:underline cursor-pointer">
+                Terms of Service
+              </span>{" "}
               and{" "}
-              <span className="text-primary font-medium hover:underline cursor-pointer">Privacy Policy</span>.
+              <span className="text-primary font-medium hover:underline cursor-pointer">
+                Privacy Policy
+              </span>
+              .
             </p>
             <div className="flex justify-center gap-4">
-              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">Privacy Policy</span>
-              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">Terms of Service</span>
-              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">Contact Support</span>
+              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+                Privacy Policy
+              </span>
+              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+                Terms of Service
+              </span>
+              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+                Contact Support
+              </span>
             </div>
           </div>
         </div>
@@ -547,7 +622,9 @@ export function Auth() {
         {/* Clariva brand footer */}
         <div className="mt-8 flex justify-center items-center gap-2 text-muted-foreground">
           <Sparkles className="w-4 h-4 text-primary" />
-          <span className="font-black text-foreground text-sm tracking-tight">Clariva</span>
+          <span className="font-black text-foreground text-sm tracking-tight">
+            Clariva
+          </span>
           <span className="w-1 h-1 rounded-full bg-muted-foreground" />
           <span className="text-xs">AI-Powered Insights v2.4</span>
         </div>
