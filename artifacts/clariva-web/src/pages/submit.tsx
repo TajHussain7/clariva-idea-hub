@@ -401,6 +401,7 @@ export function Submit() {
                       variant="outline"
                       size="sm"
                       onClick={handleSaveDraft}
+                      disabled={createIdeaMutation.isPending}
                     >
                       Save Draft
                     </Button>

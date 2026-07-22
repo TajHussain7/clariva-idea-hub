@@ -19,6 +19,8 @@ export const pool = new Pool({
   ssl: isProduction ? { rejectUnauthorized: false } : false,
   // Cap pool size to avoid connection exhaustion on serverless/hobby plans.
   max: 10,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
 });
 
 export const db = drizzle(pool, { schema });
