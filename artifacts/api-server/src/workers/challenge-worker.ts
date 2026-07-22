@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { weeklyChallengesTable } from "@workspace/db/schema";
+import { weeklyChallengesTable, usersTable } from "@workspace/db/schema";
 import { and, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import {
@@ -11,8 +11,37 @@ import {
 import { calculateWinner } from "../lib/challenge-winner.js";
 import { generateChallenge } from "../lib/pipeline/challenge-generator.js";
 
-// System user ID for automated challenge creation
-const SYSTEM_USER_ID = 1; // Assumes user with ID 1 exists, adjust as needed
+/**
+ * Get a valid user ID for automated challenge creation.
+ * Checks if user with ID 1 exists, otherwise falls back to the first existing user in the database.
+ */
+async function getSystemUserId(): Promise<number> {
+  try {
+    const [targetUser] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(sql`${usersTable.id} = 1`)
+      .limit(1);
+
+    if (targetUser) {
+      return targetUser.id;
+    }
+
+    const [firstUser] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .orderBy(sql`${usersTable.id} ASC`)
+      .limit(1);
+
+    if (firstUser) {
+      return firstUser.id;
+    }
+  } catch (err) {
+    logger.warn({ err }, "Could not resolve system user ID from database, falling back to 1");
+  }
+
+  return 1;
+}
 
 interface WorkerStats {
   cyclesRun: number;
@@ -223,6 +252,9 @@ async function handleNewChallenge(): Promise<void> {
         return; // Idempotent - another worker may have created it
       }
 
+      // Resolve creator user ID dynamically
+      const creatorId = await getSystemUserId();
+
       // Insert into database
       const result = await db
         .insert(weeklyChallengesTable)
@@ -231,7 +263,7 @@ async function handleNewChallenge(): Promise<void> {
           description: challenge.description,
           startsAt: challenge.startsAt,
           endsAt: challenge.endsAt,
-          createdBy: SYSTEM_USER_ID,
+          createdBy: creatorId,
           status: "active",
           extensionCount: 0,
           winnerCalculated: false,
