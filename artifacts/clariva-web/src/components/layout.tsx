@@ -248,6 +248,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [bellOpen, setBellOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
 
+  // Network offline state
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== "undefined" ? !navigator.onLine : false,
+  );
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
   // Redirect unauthenticated users to login page
   useEffect(() => {
     if (!isLoading && !user) {
@@ -380,6 +398,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
+      {isOffline && (
+        <div className="offline-banner">
+          <span>⚠️ You are currently offline. Check your internet connection.</span>
+        </div>
+      )}
       {/* ===== Sidebar ===== */}
       <aside
         className={`shrink-0 flex flex-col h-screen md:sticky md:top-0 z-50 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 ${

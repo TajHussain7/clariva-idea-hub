@@ -12,9 +12,6 @@ import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -37,17 +34,36 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trash2, MessageSquare } from "lucide-react";
+import { Trash2, MessageSquare, Users, Wifi } from "lucide-react";
 
 interface TeamDetailProps {
   teamId: number;
 }
 
+function TeamDetailSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2 flex-1">
+          <div className="skeleton h-8 w-48 rounded" />
+          <div className="skeleton h-4 w-72 rounded" />
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className="skeleton h-10 w-64 rounded" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="skeleton h-16 w-full rounded" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function TeamDetail({ teamId }: TeamDetailProps) {
-  const { data: team } = useTeamDetail(teamId);
-  const { data: members } = useTeamMembers(teamId);
-  const { data: discussions } = useTeamDiscussions(teamId);
-  const { data: presence } = useTeamPresence(teamId);
+  const { data: team, isLoading: teamLoading } = useTeamDetail(teamId);
+  const { data: members, isLoading: membersLoading } = useTeamMembers(teamId);
+  const { data: discussions, isLoading: discussionsLoading } = useTeamDiscussions(teamId);
+  const { data: presence, isLoading: presenceLoading } = useTeamPresence(teamId);
   const { data: currentUser } = useCurrentUser();
   const inviteTeamMember = useInviteTeamMember(teamId);
   const createDiscussion = useCreateDiscussion(teamId);
@@ -57,20 +73,18 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
-  const wsRef = useWebSocket(teamId);
+  useWebSocket(teamId);
 
   // Update user presence when component mounts
   useEffect(() => {
     if (!teamId || !currentUser?.id) return;
 
-    // Only update presence, don't fail if it errors
     updatePresence.mutate({
       teamId,
       isOnline: true,
       location: "team",
     });
 
-    // Listen for WebSocket presence updates
     const handlePresenceUpdate = () => {
       queryClient.invalidateQueries({
         queryKey: ["teams", teamId, "presence"],
@@ -90,14 +104,13 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
   const [discussionTitle, setDiscussionTitle] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // Check if current user is the team owner
   const isOwner = members?.some(
     (member) => member.userId === currentUser?.id && member.role === "owner"
   );
 
   const handleInviteMember = async () => {
     if (!inviteEmail.trim()) {
-      toast({ title: "Error", description: "Email is required" });
+      toast({ title: "Email required", description: "Please enter an email address to invite." });
       return;
     }
 
@@ -105,15 +118,24 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
       await inviteTeamMember.mutateAsync(inviteEmail);
       setShowInviteDialog(false);
       setInviteEmail("");
-      toast({ title: "Success", description: "Invitation sent" });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to send invitation" });
+      toast({ title: "Invitation sent", description: `An invitation has been sent to ${inviteEmail}.` });
+    } catch (error: any) {
+      const message = error?.message || "";
+      toast({
+        title: "Could not send invitation",
+        description: message.toLowerCase().includes("not found")
+          ? "No account found with that email address."
+          : message.toLowerCase().includes("already")
+          ? "This person is already a member of the team."
+          : "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleCreateDiscussion = async () => {
     if (!discussionTitle.trim()) {
-      toast({ title: "Error", description: "Discussion title is required" });
+      toast({ title: "Title required", description: "Please enter a title for the discussion." });
       return;
     }
 
@@ -124,8 +146,12 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
       setShowDiscussionDialog(false);
       setDiscussionTitle("");
       setLocation(`/team/${teamId}/discussion/${discussion.id}`);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to create discussion" });
+    } catch {
+      toast({
+        title: "Could not create discussion",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -133,35 +159,49 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
     try {
       await deleteTeam.mutateAsync(teamId);
       setShowDeleteDialog(false);
-      toast({ 
-        title: "Success", 
-        description: "Team and all conversations deleted successfully" 
+      toast({
+        title: "Team deleted",
+        description: "The team and all its data have been permanently removed.",
       });
       setLocation("/teams");
-    } catch (error) {
-      toast({ 
-        title: "Error", 
-        description: "Failed to delete team" 
+    } catch {
+      toast({
+        title: "Could not delete team",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
       });
     }
   };
 
-  if (!team) {
-    return <div>Loading...</div>;
+  if (teamLoading) {
+    return <TeamDetailSkeleton />;
   }
+
+  if (!team) {
+    return (
+      <Card>
+        <CardContent className="text-center py-12">
+          <p className="text-muted-foreground">Team not found or you don&apos;t have access.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const onlineCount = presence?.filter((p) => p.isOnline).length ?? 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">{team.name}</h1>
-          <p className="text-muted-foreground">{team.description}</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{team.name}</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">{team.description}</p>
         </div>
         {isOwner && (
           <Button
             variant="destructive"
             size="sm"
             onClick={() => setShowDeleteDialog(true)}
+            className="shrink-0 self-start"
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Delete Team
@@ -170,18 +210,22 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
       </div>
 
       <Tabs defaultValue="members" className="w-full">
-        <TabsList>
-          <TabsTrigger value="members">
+        <TabsList className="flex-wrap h-auto gap-1">
+          <TabsTrigger value="members" className="cursor-pointer">
+            <Users className="w-3.5 h-3.5 mr-1.5" />
             Members ({members?.length || 0})
           </TabsTrigger>
-          <TabsTrigger value="discussions">
+          <TabsTrigger value="discussions" className="cursor-pointer">
+            <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
             Discussions ({discussions?.length || 0})
           </TabsTrigger>
-          <TabsTrigger value="presence">
-            Online Now ({presence?.filter((p) => p.isOnline).length || 0})
+          <TabsTrigger value="presence" className="cursor-pointer">
+            <Wifi className="w-3.5 h-3.5 mr-1.5" />
+            Online Now ({onlineCount})
           </TabsTrigger>
         </TabsList>
 
+        {/* Members Tab */}
         <TabsContent value="members" className="space-y-4">
           <div className="flex justify-end">
             <Button onClick={() => setShowInviteDialog(true)}>
@@ -189,21 +233,27 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
             </Button>
           </div>
 
-          {members && members.length > 0 ? (
+          {membersLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton h-16 w-full rounded" />
+              ))}
+            </div>
+          ) : members && members.length > 0 ? (
             <div className="space-y-2">
               {members.map((member) => (
                 <Card key={member.id}>
-                  <CardContent className="flex items-center justify-between py-4">
-                    <div>
-                      <p className="font-medium text-foreground">
+                  <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-4">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">
                         {member.user.name}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground truncate">
                         {member.user.email}
                       </p>
                     </div>
                     <div
-                      className={`text-sm px-3 py-1 rounded font-medium border ${
+                      className={`text-sm px-3 py-1 rounded font-medium border shrink-0 self-start sm:self-auto ${
                         member.role === "owner"
                           ? "bg-primary/10 text-primary border-primary/20"
                           : "bg-muted text-muted-foreground border-border"
@@ -218,12 +268,17 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           ) : (
             <Card>
               <CardContent className="text-center py-8">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-20" />
                 <p className="text-muted-foreground">No members yet</p>
+                <p className="text-xs text-muted-foreground opacity-70 mt-1">
+                  Invite people using their email address
+                </p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
+        {/* Discussions Tab */}
         <TabsContent value="discussions" className="space-y-4">
           <div className="flex justify-end">
             <Button onClick={() => setShowDiscussionDialog(true)}>
@@ -231,7 +286,13 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
             </Button>
           </div>
 
-          {discussions && discussions.length > 0 ? (
+          {discussionsLoading ? (
+            <div className="space-y-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="skeleton h-16 w-full rounded" />
+              ))}
+            </div>
+          ) : discussions && discussions.length > 0 ? (
             <div className="space-y-2">
               {discussions.map((discussion) => (
                 <Card
@@ -243,11 +304,11 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
                 >
                   <CardContent className="py-4">
                     <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                      <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
                         <MessageSquare className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground">
+                        <p className="font-medium text-foreground truncate">
                           {discussion.title}
                         </p>
                         <p className="text-sm text-muted-foreground mt-1">
@@ -273,16 +334,34 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           )}
         </TabsContent>
 
+        {/* Online Tab */}
         <TabsContent value="presence" className="space-y-4">
-          {presence && presence.filter((p) => p.isOnline).length > 0 ? (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              Updates automatically every 10 seconds
+            </p>
+            {presenceLoading && (
+              <span className="text-xs text-muted-foreground animate-pulse">
+                Refreshing&hellip;
+              </span>
+            )}
+          </div>
+
+          {presenceLoading && !presence ? (
+            <div className="space-y-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="skeleton h-16 w-full rounded" />
+              ))}
+            </div>
+          ) : presence && presence.filter((p) => p.isOnline).length > 0 ? (
             <div className="space-y-2">
               {presence
                 .filter((user) => user.isOnline)
                 .map((user) => (
                   <Card key={user.userId}>
-                    <CardContent className="flex items-center justify-between py-4">
+                    <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="relative">
+                        <div className="relative shrink-0">
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                             <span className="text-sm font-semibold text-primary">
                               {user.user.name.charAt(0).toUpperCase()}
@@ -290,8 +369,8 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
                           </div>
                           <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-card" />
                         </div>
-                        <div>
-                          <p className="font-medium text-foreground">
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground truncate">
                             {user.user.name}
                           </p>
                           <p className="text-sm text-muted-foreground capitalize">
@@ -299,7 +378,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                         <p className="text-xs font-medium text-green-600">
                           Online
@@ -317,13 +396,12 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
                 </div>
                 <p className="text-muted-foreground mb-2">No one is online right now</p>
                 <p className="text-xs text-muted-foreground opacity-70">
-                  Team members will appear here when they join
+                  Team members appear here when they&apos;re active
                 </p>
               </CardContent>
             </Card>
           )}
 
-          {/* Show offline members for context */}
           {presence && presence.filter((p) => !p.isOnline).length > 0 && (
             <div className="mt-6">
               <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">
@@ -336,16 +414,16 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
                     <Card key={user.userId}>
                       <CardContent className="flex items-center justify-between py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
                             <span className="text-xs font-semibold text-muted-foreground">
                               {user.user.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground truncate">
                             {user.user.name}
                           </p>
                         </div>
-                        <p className="text-xs text-muted-foreground">Offline</p>
+                        <p className="text-xs text-muted-foreground shrink-0">Offline</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -370,19 +448,27 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
+              onKeyDown={(e) =>
+                e.key === "Enter" && !inviteTeamMember.isPending && handleInviteMember()
+              }
+              disabled={inviteTeamMember.isPending}
             />
             <div className="flex gap-2 justify-end">
               <Button
                 variant="outline"
-                onClick={() => setShowInviteDialog(false)}
+                onClick={() => {
+                  setShowInviteDialog(false);
+                  setInviteEmail("");
+                }}
+                disabled={inviteTeamMember.isPending}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleInviteMember}
-                disabled={inviteTeamMember.isPending}
+                disabled={inviteTeamMember.isPending || !inviteEmail.trim()}
               >
-                {inviteTeamMember.isPending ? "Sending..." : "Send Invitation"}
+                {inviteTeamMember.isPending ? "Sending\u2026" : "Send Invitation"}
               </Button>
             </div>
           </div>
@@ -390,10 +476,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
       </Dialog>
 
       {/* Create Discussion Dialog */}
-      <Dialog
-        open={showDiscussionDialog}
-        onOpenChange={setShowDiscussionDialog}
-      >
+      <Dialog open={showDiscussionDialog} onOpenChange={setShowDiscussionDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Start a Discussion</DialogTitle>
@@ -406,19 +489,27 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
               placeholder="Discussion title"
               value={discussionTitle}
               onChange={(e) => setDiscussionTitle(e.target.value)}
+              onKeyDown={(e) =>
+                e.key === "Enter" && !createDiscussion.isPending && handleCreateDiscussion()
+              }
+              disabled={createDiscussion.isPending}
             />
             <div className="flex gap-2 justify-end">
               <Button
                 variant="outline"
-                onClick={() => setShowDiscussionDialog(false)}
+                onClick={() => {
+                  setShowDiscussionDialog(false);
+                  setDiscussionTitle("");
+                }}
+                disabled={createDiscussion.isPending}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleCreateDiscussion}
-                disabled={createDiscussion.isPending}
+                disabled={createDiscussion.isPending || !discussionTitle.trim()}
               >
-                {createDiscussion.isPending ? "Creating..." : "Create"}
+                {createDiscussion.isPending ? "Creating\u2026" : "Create"}
               </Button>
             </div>
           </div>
@@ -429,20 +520,20 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this team?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the team
-              and all associated discussions, messages, and data.
+              This action cannot be undone. The team and all associated
+              discussions, messages, and data will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteTeam.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteTeam}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteTeam.isPending}
             >
-              {deleteTeam.isPending ? "Deleting..." : "Delete Team"}
+              {deleteTeam.isPending ? "Deleting\u2026" : "Delete Team"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

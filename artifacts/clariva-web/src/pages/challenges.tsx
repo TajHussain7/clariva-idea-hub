@@ -271,6 +271,7 @@ export function Challenges() {
   const { data: challenge, isLoading: challengeLoading } = useQuery<Challenge>({
     queryKey: ["challenge-active"],
     queryFn: () => fetcher("/api/challenges/active"),
+    refetchInterval: 30000,
     retry: false,
   });
 
@@ -394,8 +395,12 @@ export function Challenges() {
 
   if (challengeLoading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <div className="skeleton h-48 w-full rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="skeleton h-32 w-full rounded-xl" />
+          <div className="skeleton h-32 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
