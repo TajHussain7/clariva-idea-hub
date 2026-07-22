@@ -8,7 +8,7 @@ import {
   ideasTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, sql, gt, lt, desc } from "drizzle-orm";
+import { eq, and, sql, gt, lt, gte, lte, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
 import { requireAdmin } from "../middlewares/admin-auth.js";
 import { logger } from "../lib/logger.js";
@@ -31,17 +31,43 @@ router.get(
   async (req, res): Promise<void> => {
     const n = now();
 
-    const [challenge] = await db
+    let [challenge] = await db
       .select()
       .from(weeklyChallengesTable)
       .where(
         and(
-          lt(weeklyChallengesTable.startsAt, n),
-          gt(weeklyChallengesTable.endsAt, n),
+          sql`${weeklyChallengesTable.status} IN ('active', 'extended')`,
+          lte(weeklyChallengesTable.startsAt, n),
+          gte(weeklyChallengesTable.endsAt, n),
         ),
       )
-      .orderBy(desc(weeklyChallengesTable.startsAt))
+      .orderBy(desc(weeklyChallengesTable.createdAt))
       .limit(1);
+
+    if (!challenge) {
+      // Try auto-triggering worker cycle if no active challenge exists
+      try {
+        const { runWorkerCycle } = await import("../workers/challenge-worker.js");
+        await runWorkerCycle();
+      } catch (err) {
+        logger.error(
+          { err },
+          "Auto challenge creation attempt failed on GET /challenges/active",
+        );
+      }
+
+      // Re-query for active challenge or any recent active/extended challenge
+      const [latestActive] = await db
+        .select()
+        .from(weeklyChallengesTable)
+        .where(sql`${weeklyChallengesTable.status} IN ('active', 'extended')`)
+        .orderBy(desc(weeklyChallengesTable.createdAt))
+        .limit(1);
+
+      if (latestActive) {
+        challenge = latestActive;
+      }
+    }
 
     if (!challenge) {
       res.status(404).json({ error: "No active challenge" });

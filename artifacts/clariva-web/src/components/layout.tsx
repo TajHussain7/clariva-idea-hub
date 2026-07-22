@@ -102,6 +102,7 @@ function useNotificationSocket(
   cbRef.current = onNewNotification;
 
   useEffect(() => {
+    if (window.location.hostname.includes("vercel.app")) return;
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${window.location.host}/api/ws`);
     ws.onopen = () =>
