@@ -27,12 +27,12 @@ export const WORKER_SCHEDULE_CONFIG = {
    * │ │ │ │ │
    * * * * * *
    */
-  challengeCreationSchedule: "0 23 * * 1",
+  challengeCreationSchedule: "0 11 * * 1",
 
   /**
    * Human-readable description of the schedule
    */
-  scheduleDescription: "Every Monday at 11:00 PM",
+  scheduleDescription: "Every Monday at 11:00 AM PKT",
 
   /**
    * Timezone for the cron schedule
