@@ -21,6 +21,8 @@ function createClient(): OpenAI {
   return new OpenAI({
     baseURL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
     apiKey: process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY,
+    timeout: 30000,
+    maxRetries: 2,
   });
 }
 

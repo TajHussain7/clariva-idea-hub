@@ -288,7 +288,7 @@ function discoverSlots(): AIRouterSlot[] {
       fallbackModel:
         process.env.AI_INTEGRATIONS_OPENROUTER_MODEL_FALLBACK ??
         DEFAULT_FALLBACK_MODELS[1]!,
-      client: new OpenAI({ baseURL: baseUrl, apiKey: key1 }),
+      client: new OpenAI({ baseURL: baseUrl, apiKey: key1, timeout: 30000, maxRetries: 1 }),
     });
   }
 
@@ -306,7 +306,7 @@ function discoverSlots(): AIRouterSlot[] {
         process.env[`AI_INTEGRATIONS_OPENROUTER_MODEL_${i}_FALLBACK`] ??
         DEFAULT_FALLBACK_MODELS[i] ??
         DEFAULT_FALLBACK_MODELS[1]!,
-      client: new OpenAI({ baseURL: baseUrl, apiKey: keyN }),
+      client: new OpenAI({ baseURL: baseUrl, apiKey: keyN, timeout: 30000, maxRetries: 1 }),
     });
   }
 
@@ -320,6 +320,8 @@ function discoverSlots(): AIRouterSlot[] {
       client: new OpenAI({
         baseURL: "https://api.groq.com/openai/v1",
         apiKey: groqKey,
+        timeout: 30000,
+        maxRetries: 1,
       }),
     });
   }

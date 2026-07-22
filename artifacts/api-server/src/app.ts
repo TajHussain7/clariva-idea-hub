@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import rateLimit from "express-rate-limit";
 import router from "./routes/index.js";
 import setupWebSocket from "./routes/ws.js";
 import { logger } from "./lib/logger.js";
@@ -35,6 +36,14 @@ declare module "express-session" {
 const PgSession = connectPgSimple(session);
 const app: Express = express();
 
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 300, // Limit each IP to 300 requests per 15 mins
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+
 app.use(
   pinoHttp({
     logger,
@@ -64,7 +73,7 @@ app.set("trust proxy", 1);
 const isProduction = process.env.NODE_ENV === "production";
 
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim())
+  ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim().replace(/\/$/, ""))
   : ["http://localhost:5173", "http://127.0.0.1:5173"];
 
 app.use(
@@ -72,12 +81,13 @@ app.use(
     origin: (origin, callback) => {
       // Allow server-to-server requests (curl, health checks) with no Origin header.
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/$/, "");
+      if (allowedOrigins.includes(cleanOrigin)) return callback(null, true);
       // In development, allow any localhost/127.0.0.1 origin for convenience.
       if (
         !isProduction &&
-        (origin.startsWith("http://localhost") ||
-          origin.startsWith("http://127.0.0.1"))
+        (cleanOrigin.startsWith("http://localhost") ||
+          cleanOrigin.startsWith("http://127.0.0.1"))
       ) {
         return callback(null, true);
       }
@@ -129,9 +139,18 @@ app.use(
   }),
 );
 
-app.use("/api", router);
+// Apply rate limiter to API routes
+app.use("/api", apiLimiter, router);
 
 // Setup WebSocket
 setupWebSocket(app);
+
+// Global Error Handler Middleware
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error({ err, url: req.url, method: req.method }, "Unhandled server error");
+  const statusCode = typeof err.status === "number" ? err.status : typeof err.statusCode === "number" ? err.statusCode : 500;
+  const message = isProduction ? "Internal server error" : (err.message || "Internal server error");
+  res.status(statusCode).json({ error: message });
+});
 
 export default app;

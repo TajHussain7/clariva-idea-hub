@@ -270,13 +270,17 @@ export async function analyzeIdea(
   domain: string,
   complexity: number,
 ): Promise<AnalysisResult> {
+  const safeTitle = (title || "").slice(0, 200).trim();
+  const safeDescription = (description || "").slice(0, 2000).trim();
+  const safeDomain = (domain || "").slice(0, 100).trim();
+
   const [githubData, wikiData, ddgData] = await Promise.all([
-    fetchGithubData(title, description),
-    fetchWikipediaContext(title, domain),
-    fetchDuckDuckGoContext(title),
+    fetchGithubData(safeTitle, safeDescription),
+    fetchWikipediaContext(safeTitle, safeDomain),
+    fetchDuckDuckGoContext(safeTitle),
   ]);
 
-  const ruleData = runRuleEngine(title, description, domain, complexity);
+  const ruleData = runRuleEngine(safeTitle, safeDescription, safeDomain, complexity);
 
   const marketParts: string[] = [];
   if (wikiData.found) {
@@ -299,9 +303,9 @@ export async function analyzeIdea(
 
   try {
     const prompt = buildUserPrompt(
-      title,
-      description,
-      domain,
+      safeTitle,
+      safeDescription,
+      safeDomain,
       complexity,
       githubData,
       wikiData,

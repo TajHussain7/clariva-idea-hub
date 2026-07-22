@@ -360,7 +360,24 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { credentials: "include", ...init, method, headers });
+  // Default timeout signal to 15 seconds if caller didn't supply custom signal
+  const signal = init.signal ?? (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(15000) : undefined);
+
+  let response: Response;
+  let attempts = 0;
+  const maxAttempts = (method === "GET" || method === "HEAD") ? 2 : 1;
+
+  while (true) {
+    attempts++;
+    response = await fetch(input, { credentials: "include", ...init, signal, method, headers });
+
+    // Retry transient 502/503 cold start errors on idempotent GET/HEAD requests
+    if (!response.ok && (response.status === 502 || response.status === 503) && attempts < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      continue;
+    }
+    break;
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
