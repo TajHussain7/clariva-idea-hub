@@ -54,6 +54,7 @@ export function useTeamPresence(teamId: number) {
     enabled: !!teamId,
     refetchInterval: 10000, // Refetch every 10 seconds to ensure fresh data
     staleTime: 5000, // Consider data stale after 5 seconds
+    gcTime: 30000, // Clear from cache after 30 seconds of inactivity
     retry: false, // Don't retry if presence fails - it's not critical
   });
 }
@@ -114,13 +115,11 @@ export function useWebSocket(teamId: number | null, enabled = true) {
         wsRef.current = new WebSocket(wsUrl);
 
         wsRef.current.onopen = () => {
-          console.log("[WebSocket] Connected");
           reconnectAttempts.current = 0;
 
           // Subscribe to team
           if (wsRef.current && teamId) {
             wsRef.current.send(JSON.stringify({ type: "subscribe", teamId }));
-            console.log("[WebSocket] Subscribed to team:", teamId);
           }
 
           // Send heartbeat every 30 seconds
@@ -136,7 +135,6 @@ export function useWebSocket(teamId: number | null, enabled = true) {
         wsRef.current.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data);
-            console.log("[WebSocket] Message received:", message);
 
             if (message.type === "presence_update") {
               // Invalidate presence query to refetch
@@ -148,23 +146,17 @@ export function useWebSocket(teamId: number | null, enabled = true) {
               window.dispatchEvent(
                 new CustomEvent("presence-update", { detail: message }),
               );
-            } else if (message.type === "subscribed") {
-              console.log(
-                "[WebSocket] Subscription confirmed for team:",
-                message.teamId,
-              );
             }
           } catch (error) {
-            console.error("[WebSocket] Error parsing message:", error);
+            console.warn("[WebSocket] Error parsing message:", error);
           }
         };
 
-        wsRef.current.onerror = (error) => {
-          console.error("[WebSocket] Error:", error);
+        wsRef.current.onerror = () => {
+          // Silently handle WS errors — presence falls back to polling
         };
 
         wsRef.current.onclose = () => {
-          console.log("[WebSocket] Connection closed");
           wsRef.current = null;
 
           if (reconnectAttempts.current < maxReconnectAttempts) {
@@ -173,12 +165,7 @@ export function useWebSocket(teamId: number | null, enabled = true) {
               1000 * Math.pow(2, reconnectAttempts.current),
               30000,
             );
-            console.log(
-              `[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`,
-            );
             setTimeout(connectWebSocket, delay);
-          } else {
-            console.error("[WebSocket] Max reconnection attempts reached");
           }
         };
       } catch (error) {
@@ -192,7 +179,6 @@ export function useWebSocket(teamId: number | null, enabled = true) {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: "unsubscribe" }));
         wsRef.current.close();
-        console.log("[WebSocket] Disconnected and unsubscribed");
       }
     };
   }, [teamId, enabled, queryClient]);
