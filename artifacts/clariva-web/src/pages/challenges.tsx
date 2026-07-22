@@ -68,7 +68,7 @@ function useChallengeSocket(
   const ref = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (!challengeId) return;
+    if (!challengeId || window.location.hostname.includes("vercel.app")) return;
 
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${window.location.host}/api/ws`);
@@ -100,6 +100,8 @@ function useFeedSocket(onMessage: (msg: any) => void) {
   const ref = useRef<WebSocket | null>(null);
 
   useEffect(() => {
+    if (window.location.hostname.includes("vercel.app")) return;
+
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${window.location.host}/api/ws`);
     ref.current = ws;

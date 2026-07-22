@@ -126,6 +126,7 @@ interface Analysis {
 function useFeedSocket(onMessage: (msg: any) => void) {
   const ref = useRef<WebSocket | null>(null);
   useEffect(() => {
+    if (window.location.hostname.includes("vercel.app")) return;
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${window.location.host}/api/ws`);
     ref.current = ws;
@@ -155,7 +156,7 @@ function useCollabConvoSocket(
   cbRef.current = onNewMessage;
 
   useEffect(() => {
-    if (!offerId) return;
+    if (!offerId || window.location.hostname.includes("vercel.app")) return;
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${window.location.host}/api/ws`);
     ws.onopen = () =>
