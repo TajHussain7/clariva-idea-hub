@@ -22,6 +22,22 @@ import {
   TrendingDown,
   Zap,
   FileText,
+  BarChart2,
+  Target,
+  ClipboardList,
+  Users,
+  AlertCircle,
+  ShieldAlert,
+  Database,
+  Calendar,
+  GitPullRequest,
+  Info,
+  Newspaper,
+  Package,
+  Search,
+  MessageSquare,
+  Radio,
+  CheckCircle,
 } from "lucide-react";
 import {
   useGetIdea,
@@ -86,7 +102,7 @@ function RadarChart({
       .join(" ") + " Z";
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-label="Market viability radar chart">
       {gridLevels.map((f, gi) => {
         const pts = angles.map((a) => pointAt(a, f));
         const d =
@@ -170,10 +186,53 @@ function scoreColor(score: number) {
 }
 
 /* ======================= Markdown Renderer ======================= */
+
+// Maps emoji prefixes in section headings to Lucide icon components
+const SECTION_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  "🧠": FileText,
+  "📊": BarChart2,
+  "⚔️": GitBranch,
+  "✅": CheckCircle2,
+  "🚨": ShieldAlert,
+  "💡": Lightbulb,
+  "🎯": Target,
+  "📋": ClipboardList,
+};
+
+function stripLeadingEmoji(text: string): { icon: React.ComponentType<{ className?: string }> | null; clean: string } {
+  for (const [emoji, Icon] of Object.entries(SECTION_ICON_MAP)) {
+    if (text.startsWith(emoji)) {
+      return { icon: Icon, clean: text.slice(emoji.length).trim() };
+    }
+  }
+  // Generic emoji strip (any leading emoji char)
+  const cleaned = text.replace(/^[\p{Emoji}]+\s*/u, "");
+  return { icon: null, clean: cleaned || text };
+}
+
 function parseInline(text: string): React.ReactNode[] {
-  // Handle **bold** and [text](url) inline
-  const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
+  // Order matters: handle **[text](url)** first, then **bold**, *italic*, [link](url)
+  const parts = text.split(
+    /(\*\*\[[^\]]+\]\([^)]+\)\*\*|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g,
+  );
   return parts.map((part, i) => {
+    // **[text](url)** — bold link
+    const boldLinkMatch = part.match(/^\*\*\[([^\]]+)\]\(([^)]+)\)\*\*$/);
+    if (boldLinkMatch) {
+      return (
+        <a
+          key={i}
+          href={boldLinkMatch[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-primary hover:underline inline-flex items-center gap-0.5"
+        >
+          {boldLinkMatch[1]}
+          <ExternalLink className="w-3 h-3 opacity-60" />
+        </a>
+      );
+    }
+    // **bold**
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
         <strong key={i} className="font-semibold text-foreground">
@@ -181,6 +240,15 @@ function parseInline(text: string): React.ReactNode[] {
         </strong>
       );
     }
+    // *italic*
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+      return (
+        <em key={i} className="italic text-muted-foreground">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    // [text](url)
     const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (linkMatch) {
       return (
@@ -224,14 +292,20 @@ function MarkdownReport({ content }: { content: string }) {
     const raw = lines[i];
     const line = raw.trimEnd();
 
-    // H3 section header
+    // H3 section header — strip emoji, use icon
     if (line.startsWith("### ")) {
       flushList();
-      const text = line.slice(4).trim();
+      const rawText = line.slice(4).trim();
+      const { icon: SectionIcon, clean } = stripLeadingEmoji(rawText);
       elements.push(
         <div key={key()} className="mt-7 mb-3 first:mt-0">
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2.5 border-b border-border">
-            {text}
+            {SectionIcon && (
+              <span className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                <SectionIcon className="w-3 h-3 text-primary" />
+              </span>
+            )}
+            {clean}
           </h3>
         </div>,
       );
@@ -252,10 +326,10 @@ function MarkdownReport({ content }: { content: string }) {
       continue;
     }
 
-    // Verdict lines
-    const isGo = line.includes("🟢");
-    const isConditional = line.includes("🟡");
-    const isNoGo = line.includes("🔴");
+    // Verdict lines — replace emoji with Lucide icons
+    const isGo = line.includes("🟢") || line.toUpperCase().includes("GO — BUILD");
+    const isConditional = line.includes("🟡") || line.toUpperCase().includes("CONDITIONAL GO");
+    const isNoGo = line.includes("🔴") || line.toUpperCase().includes("DO NOT GO");
     if (isGo || isConditional || isNoGo) {
       flushList();
       const bg = isGo
@@ -263,12 +337,17 @@ function MarkdownReport({ content }: { content: string }) {
         : isConditional
           ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400"
           : "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400";
-      const cleaned = line.replace(/\*\*/g, "").trim();
+      const VerdictIcon = isGo ? CheckCircle : isConditional ? AlertCircle : XCircle;
+      const cleaned = line
+        .replace(/🟢|🟡|🔴/g, "")
+        .replace(/\*\*/g, "")
+        .trim();
       elements.push(
         <div
           key={key()}
-          className={`rounded-lg border px-4 py-3 font-semibold text-sm mt-2 ${bg}`}
+          className={`rounded-lg border px-4 py-3 font-semibold text-sm mt-2 flex items-center gap-2.5 ${bg}`}
         >
+          <VerdictIcon className="w-4 h-4 shrink-0" />
           {cleaned}
         </div>,
       );
@@ -293,6 +372,7 @@ function MarkdownReport({ content }: { content: string }) {
           key={key()}
           className="flex items-center gap-4 my-3 p-3.5 rounded-xl bg-muted/50 border border-border"
         >
+          <Target className="w-4 h-4 text-muted-foreground shrink-0" />
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             Idea–Market Fit
           </span>
@@ -342,8 +422,21 @@ function MarkdownReport({ content }: { content: string }) {
 }
 
 /* ======================= Repo Card ======================= */
+function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days < 1) return "today";
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}yr ago`;
+}
+
 function RepoCard({ repo }: { repo: any }) {
   const [gapOpen, setGapOpen] = useState(false);
+  const pushedLabel = repo.lastPushedAt ? timeAgo(repo.lastPushedAt) : null;
+
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3 hover:border-primary/30 transition-colors">
       <div className="flex items-start justify-between gap-2 mb-1">
@@ -366,14 +459,37 @@ function RepoCard({ repo }: { repo: any }) {
       <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-1.5">
         {repo.desc}
       </p>
-      <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Metadata row */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
         <span className="text-[11px] font-medium text-primary/70 bg-primary/5 rounded-full px-2 py-0.5">
           {repo.lang}
         </span>
+        {pushedLabel && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+            <Calendar className="w-2.5 h-2.5" />
+            {pushedLabel}
+          </span>
+        )}
+        {repo.contributorCount != null && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+            <Users className="w-2.5 h-2.5" />
+            {repo.contributorCount >= 1000
+              ? (repo.contributorCount / 1000).toFixed(1) + "k"
+              : repo.contributorCount}{" "}
+            contributors
+          </span>
+        )}
+        {repo.openIssuesCount != null && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+            <GitPullRequest className="w-2.5 h-2.5" />
+            {repo.openIssuesCount} issues
+          </span>
+        )}
         {repo.gapAnalysis && (
           <button
             onClick={() => setGapOpen((v) => !v)}
             className="text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-full px-2 py-0.5 hover:bg-amber-500/20 transition-colors"
+            aria-label={gapOpen ? "Hide gap analysis" : "Show gap analysis"}
           >
             {gapOpen ? "Hide gap" : "Gap analysis"}
           </button>
@@ -409,6 +525,144 @@ function RepoCard({ repo }: { repo: any }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ======================= Data Confidence Badge ======================= */
+interface DataConfidence {
+  score: number;
+  sourcesWithData: string[];
+  sourcesEmpty: string[];
+  note: string;
+}
+
+function DataConfidenceBadge({ dc }: { dc: DataConfidence }) {
+  const [open, setOpen] = useState(false);
+  const color =
+    dc.score >= 70
+      ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+      : dc.score >= 40
+        ? "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20"
+        : "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20";
+
+  return (
+    <div className="relative inline-flex">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label="View data confidence details"
+        className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${color} cursor-pointer select-none`}
+      >
+        <Database className="w-3 h-3" />
+        {dc.score}% data confidence
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-2 z-50 w-72 rounded-xl border border-border bg-popover shadow-xl p-3.5 space-y-3 animate-in fade-in duration-150">
+          <p className="text-xs font-semibold text-foreground">
+            Data sources used in this analysis
+          </p>
+          {dc.sourcesWithData.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1.5">
+                Returned data ({dc.sourcesWithData.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {dc.sourcesWithData.map((s) => (
+                  <span
+                    key={s}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {dc.sourcesEmpty.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                No data ({dc.sourcesEmpty.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {dc.sourcesEmpty.map((s) => (
+                  <span
+                    key={s}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ======================= Source Signals Grid ======================= */
+const SOURCE_META: Record<
+  string,
+  { icon: React.ComponentType<{ className?: string }>; label: string; color: string }
+> = {
+  Wikipedia: { icon: Globe, label: "Wikipedia", color: "text-blue-500" },
+  DuckDuckGo: { icon: Search, label: "Web Search", color: "text-sky-500" },
+  HackerNews: { icon: Radio, label: "Hacker News", color: "text-orange-500" },
+  Reddit: { icon: MessageSquare, label: "Reddit", color: "text-rose-500" },
+  npm: { icon: Package, label: "npm", color: "text-red-500" },
+  BraveSearch: { icon: Search, label: "Brave Search", color: "text-orange-400" },
+  NewsAPI: { icon: Newspaper, label: "News", color: "text-violet-500" },
+  ProductHunt: { icon: Target, label: "Product Hunt", color: "text-amber-500" },
+  SemanticScholar: { icon: FileText, label: "Research Papers", color: "text-indigo-500" },
+  GitHub: { icon: GitBranch, label: "GitHub", color: "text-foreground" },
+};
+
+function SourceSignalsGrid({ marketContext }: { marketContext: string }) {
+  if (!marketContext || marketContext === "No external market context found.")
+    return null;
+
+  // Parse pipe-separated segments
+  const segments = marketContext.split(" | ").filter(Boolean);
+
+  // Map each segment to a structured card
+  const cards = segments.map((seg, i) => {
+    // Try to match a known source prefix
+    const matchedKey = Object.keys(SOURCE_META).find((k) =>
+      seg.toLowerCase().startsWith(k.toLowerCase()),
+    );
+    const meta = matchedKey ? SOURCE_META[matchedKey] : null;
+    const Icon = meta?.icon ?? Info;
+    const label = meta?.label ?? "Source";
+    const color = meta?.color ?? "text-muted-foreground";
+
+    // Extract the value part after the colon
+    const colonIdx = seg.indexOf(":");
+    const value = colonIdx >= 0 ? seg.slice(colonIdx + 1).trim() : seg;
+
+    return (
+      <div
+        key={i}
+        className="rounded-lg border border-border bg-muted/30 p-3 flex items-start gap-2.5"
+      >
+        <div className={`shrink-0 mt-0.5 ${color}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
+            {label}
+          </p>
+          <p className="text-xs text-foreground leading-relaxed line-clamp-2">
+            {value}
+          </p>
+        </div>
+      </div>
+    );
+  });
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      {cards}
     </div>
   );
 }
@@ -697,6 +951,7 @@ export function Results({ id }: { id: number }) {
   const hasFailed = idea.status === "failed";
   const isAnalyzed = idea.status === "analyzed";
   const a = idea.analysis;
+  const dc = (a as any)?.dataConfidence as DataConfidence | null | undefined;
 
   return (
     <div className="space-y-8 pb-10 animate-in fade-in duration-500">
@@ -718,11 +973,14 @@ export function Results({ id }: { id: number }) {
       {/* ---- Page Header ---- */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div className="min-w-0">
-          {isAnalyzed && (
-            <span className="inline-block mb-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
-              Analysis Complete
-            </span>
-          )}
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            {isAnalyzed && (
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
+                Analysis Complete
+              </span>
+            )}
+            {isAnalyzed && dc && <DataConfidenceBadge dc={dc} />}
+          </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {idea.title}
           </h1>
@@ -863,12 +1121,8 @@ export function Results({ id }: { id: number }) {
             <Card className="bg-card border-border shadow-sm">
               <CardHeader className="border-b border-border pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-muted-foreground" />
                   Market Viability
-                  <button className="ml-auto w-5 h-5 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground">
-                    <span className="text-[10px] font-bold leading-none">
-                      i
-                    </span>
-                  </button>
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-5 flex flex-col items-center gap-5">
@@ -951,6 +1205,7 @@ export function Results({ id }: { id: number }) {
                     <button
                       onClick={() => setShowAllRepos(true)}
                       className="ml-auto text-xs font-medium text-primary hover:underline flex items-center gap-1"
+                      aria-label={`View all ${a.githubRepos.length} repositories`}
                     >
                       View All ({a.githubRepos.length})
                       <ArrowRight className="w-3 h-3" />
@@ -1052,6 +1307,9 @@ export function Results({ id }: { id: number }) {
                 <button
                   key={key}
                   onClick={() => setInsightTab(key)}
+                  aria-label={`Show ${label}`}
+                  aria-selected={insightTab === key}
+                  role="tab"
                   className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
                     insightTab === key
                       ? `${color} ${activeColor} bg-muted/30`
@@ -1140,21 +1398,19 @@ export function Results({ id }: { id: number }) {
             </div>
           </Card>
 
-          {/* ---- Market Context ---- */}
+          {/* ---- Market Intelligence ---- */}
           {a.marketContext && (
             <Card className="bg-card border-border">
               <CardHeader className="border-b border-border pb-4">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" />
+                    <Globe className="w-3.5 h-3.5 text-muted-foreground" />
                   </div>
-                  Market Context
+                  Market Intelligence
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-5">
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {a.marketContext}
-                </p>
+                <SourceSignalsGrid marketContext={a.marketContext} />
               </CardContent>
             </Card>
           )}
