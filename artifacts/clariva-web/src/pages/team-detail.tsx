@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTeamDetail, useDeleteTeam } from "@/hooks/use-teams";
 import { useTeamMembers, useInviteTeamMember } from "@/hooks/use-team-members";
 import {
   useTeamDiscussions,
   useCreateDiscussion,
 } from "@/hooks/use-discussions";
-import { useTeamPresence, useWebSocket, useUpdatePresence } from "@/hooks/use-presence";
+import { useTeamPresence, useWebSocket } from "@/hooks/use-presence";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,12 +34,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trash2, MessageSquare, Users, Wifi } from "lucide-react";
+import {
+  Trash2,
+  MessageSquare,
+  Users,
+  Radio,
+  Plus,
+  ArrowRight,
+  Crown,
+  ChevronRight,
+  Calendar,
+  UserPlus,
+  Loader2,
+  Clock,
+} from "lucide-react";
+import { fetcher } from "@workspace/api-client-react";
 
 interface TeamDetailProps {
   teamId: number;
 }
 
+/* ---- Skeleton ---- */
 function TeamDetailSkeleton() {
   return (
     <div className="space-y-6">
@@ -59,6 +74,58 @@ function TeamDetailSkeleton() {
   );
 }
 
+/* ---- Avatar ---- */
+function Avatar({
+  name,
+  avatarUrl,
+  size = "md",
+  online,
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  size?: "sm" | "md" | "lg";
+  online?: boolean;
+}) {
+  const dim = size === "lg" ? "w-12 h-12 text-base" : size === "sm" ? "w-7 h-7 text-[10px]" : "w-9 h-9 text-xs";
+  return (
+    <div className="relative shrink-0">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={name}
+          className={`${dim} rounded-full object-cover border border-border`}
+        />
+      ) : (
+        <div
+          className={`${dim} rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-semibold text-primary`}
+        >
+          {name.charAt(0).toUpperCase()}
+        </div>
+      )}
+      {online !== undefined && (
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${
+            online ? "bg-emerald-500" : "bg-muted-foreground/30"
+          }`}
+          aria-label={online ? "Online" : "Offline"}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---- Time ago ---- */
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/* =================== Main Component =================== */
 export function TeamDetail({ teamId }: TeamDetailProps) {
   const { data: team, isLoading: teamLoading } = useTeamDetail(teamId);
   const { data: members, isLoading: membersLoading } = useTeamMembers(teamId);
@@ -68,35 +135,41 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
   const inviteTeamMember = useInviteTeamMember(teamId);
   const createDiscussion = useCreateDiscussion(teamId);
   const deleteTeam = useDeleteTeam();
-  const updatePresence = useUpdatePresence();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
+  // Stable ref for the mutation function to avoid stale closure in useEffect
+  const updatePresenceRef = useRef<(data: { teamId: number; isOnline: boolean; location: string }) => Promise<void>>(
+    async () => {},
+  );
+  updatePresenceRef.current = async (data) => {
+    try {
+      await fetcher("/api/presence", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      queryClient.invalidateQueries({ queryKey: ["teams", teamId, "presence"] });
+    } catch {
+      // Presence is non-critical
+    }
+  };
+
   useWebSocket(teamId);
 
-  // Update user presence when component mounts
+  // Mark self online on mount, offline on unmount — using stable ref to avoid re-fires
   useEffect(() => {
     if (!teamId || !currentUser?.id) return;
 
-    updatePresence.mutate({
-      teamId,
-      isOnline: true,
-      location: "team",
-    });
-
-    const handlePresenceUpdate = () => {
-      queryClient.invalidateQueries({
-        queryKey: ["teams", teamId, "presence"],
-      });
-    };
-
-    window.addEventListener("presence-update", handlePresenceUpdate);
+    updatePresenceRef.current({ teamId, isOnline: true, location: "team" });
 
     return () => {
-      window.removeEventListener("presence-update", handlePresenceUpdate);
+      // Fire-and-forget on cleanup — mark offline
+      updatePresenceRef.current({ teamId, isOnline: false, location: "team" });
     };
-  }, [teamId, currentUser?.id, queryClient]);
+    // Only re-run if teamId or currentUser.id changes — NOT on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId, currentUser?.id]);
 
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -105,7 +178,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const isOwner = members?.some(
-    (member) => member.userId === currentUser?.id && member.role === "owner"
+    (member) => member.userId === currentUser?.id && member.role === "owner",
   );
 
   const handleInviteMember = async () => {
@@ -113,7 +186,6 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
       toast({ title: "Email required", description: "Please enter an email address to invite." });
       return;
     }
-
     try {
       await inviteTeamMember.mutateAsync(inviteEmail);
       setShowInviteDialog(false);
@@ -126,8 +198,8 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
         description: message.toLowerCase().includes("not found")
           ? "No account found with that email address."
           : message.toLowerCase().includes("already")
-          ? "This person is already a member of the team."
-          : "Something went wrong. Please try again.",
+            ? "This person is already a member of the team."
+            : "Something went wrong. Please try again.",
         variant: "destructive",
       });
     }
@@ -138,11 +210,8 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
       toast({ title: "Title required", description: "Please enter a title for the discussion." });
       return;
     }
-
     try {
-      const discussion = await createDiscussion.mutateAsync({
-        title: discussionTitle,
-      });
+      const discussion = await createDiscussion.mutateAsync({ title: discussionTitle });
       setShowDiscussionDialog(false);
       setDiscussionTitle("");
       setLocation(`/team/${teamId}/discussion/${discussion.id}`);
@@ -159,10 +228,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
     try {
       await deleteTeam.mutateAsync(teamId);
       setShowDeleteDialog(false);
-      toast({
-        title: "Team deleted",
-        description: "The team and all its data have been permanently removed.",
-      });
+      toast({ title: "Team deleted", description: "The team and all its data have been permanently removed." });
       setLocation("/teams");
     } catch {
       toast({
@@ -173,9 +239,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
     }
   };
 
-  if (teamLoading) {
-    return <TeamDetailSkeleton />;
-  }
+  if (teamLoading) return <TeamDetailSkeleton />;
 
   if (!team) {
     return (
@@ -187,48 +251,108 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
     );
   }
 
-  const onlineCount = presence?.filter((p) => p.isOnline).length ?? 0;
+  const onlineMembers = presence?.filter((p) => p.isOnline) ?? [];
+  const offlineMembers = presence?.filter((p) => !p.isOnline) ?? [];
+  const onlineCount = onlineMembers.length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+    <div className="space-y-6 pb-8">
+      {/* ---- Page Header ---- */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{team.name}</h1>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">{team.description}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              <Users className="w-3 h-3" />
+              Team
+            </span>
+            {onlineCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {onlineCount} online
+              </span>
+            )}
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+            {team.name}
+          </h1>
+          {team.description && (
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base leading-relaxed max-w-xl">
+              {team.description}
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+            <Users className="w-3 h-3" />
+            {members?.length ?? 0} member{(members?.length ?? 0) !== 1 ? "s" : ""}
+          </p>
         </div>
-        {isOwner && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setShowDeleteDialog(true)}
-            className="shrink-0 self-start"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete Team
-          </Button>
-        )}
+        <div className="flex items-center gap-2 shrink-0 self-start">
+          {isOwner && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+              className="gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Team
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* ---- Tabs ---- */}
       <Tabs defaultValue="members" className="w-full">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="members" className="cursor-pointer">
-            <Users className="w-3.5 h-3.5 mr-1.5" />
-            Members ({members?.length || 0})
+        <TabsList className="flex-wrap h-auto gap-1 p-1 bg-muted/50 border border-border rounded-xl">
+          <TabsTrigger
+            value="members"
+            className="flex items-center gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm cursor-pointer"
+          >
+            <Users className="w-3.5 h-3.5" />
+            Members
+            <span className="ml-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground tabular-nums">
+              {members?.length ?? 0}
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="discussions" className="cursor-pointer">
-            <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
-            Discussions ({discussions?.length || 0})
+          <TabsTrigger
+            value="discussions"
+            className="flex items-center gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm cursor-pointer"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Discussions
+            <span className="ml-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground tabular-nums">
+              {discussions?.length ?? 0}
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="presence" className="cursor-pointer">
-            <Wifi className="w-3.5 h-3.5 mr-1.5" />
-            Online Now ({onlineCount})
+          <TabsTrigger
+            value="presence"
+            className="flex items-center gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm cursor-pointer"
+          >
+            <Radio className="w-3.5 h-3.5" />
+            Online Now
+            {onlineCount > 0 ? (
+              <span className="ml-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 tabular-nums">
+                {onlineCount}
+              </span>
+            ) : (
+              <span className="ml-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground tabular-nums">
+                0
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
-        {/* Members Tab */}
-        <TabsContent value="members" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setShowInviteDialog(true)}>
+        {/* ============ Members Tab ============ */}
+        <TabsContent value="members" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {members?.length ?? 0} member{(members?.length ?? 0) !== 1 ? "s" : ""} in this team
+            </p>
+            <Button
+              size="sm"
+              onClick={() => setShowInviteDialog(true)}
+              className="gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
               Invite Member
             </Button>
           </div>
@@ -236,52 +360,81 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           {membersLoading ? (
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton h-16 w-full rounded" />
+                <div key={i} className="skeleton h-16 w-full rounded-xl" />
               ))}
             </div>
           ) : members && members.length > 0 ? (
             <div className="space-y-2">
-              {members.map((member) => (
-                <Card key={member.id}>
-                  <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-4">
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">
-                        {member.user.name}
-                      </p>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {member.user.email}
-                      </p>
+              {members.map((member) => {
+                const presenceEntry = presence?.find((p) => p.userId === member.userId);
+                return (
+                  <div
+                    key={member.id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-border bg-card hover:border-primary/20 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar
+                        name={member.user.name}
+                        avatarUrl={(member.user as any).avatarUrl}
+                        size="md"
+                        online={presenceEntry?.isOnline}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-foreground text-sm truncate">
+                            {member.user.name}
+                          </p>
+                          {member.role === "owner" && (
+                            <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {member.user.email}
+                        </p>
+                      </div>
                     </div>
                     <div
-                      className={`text-sm px-3 py-1 rounded font-medium border shrink-0 self-start sm:self-auto ${
+                      className={`text-xs px-2.5 py-1 rounded-full font-semibold border shrink-0 self-start sm:self-auto ${
                         member.role === "owner"
-                          ? "bg-primary/10 text-primary border-primary/20"
+                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
                           : "bg-muted text-muted-foreground border-border"
                       }`}
                     >
-                      {member.role === "owner" ? "Team Owner" : "Member"}
+                      {member.role === "owner" ? "Owner" : "Member"}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <Card>
-              <CardContent className="text-center py-8">
-                <Users className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                <p className="text-muted-foreground">No members yet</p>
-                <p className="text-xs text-muted-foreground opacity-70 mt-1">
-                  Invite people using their email address
-                </p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-16 rounded-xl border border-dashed border-border">
+              <div className="w-14 h-14 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
+                <Users className="w-6 h-6 text-muted-foreground/40" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">No members yet</p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Invite people using their email address
+              </p>
+              <Button size="sm" onClick={() => setShowInviteDialog(true)} className="gap-2">
+                <UserPlus className="w-4 h-4" />
+                Invite Member
+              </Button>
+            </div>
           )}
         </TabsContent>
 
-        {/* Discussions Tab */}
-        <TabsContent value="discussions" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setShowDiscussionDialog(true)}>
+        {/* ============ Discussions Tab ============ */}
+        <TabsContent value="discussions" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {discussions?.length ?? 0} discussion{(discussions?.length ?? 0) !== 1 ? "s" : ""}
+            </p>
+            <Button
+              size="sm"
+              onClick={() => setShowDiscussionDialog(true)}
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
               New Discussion
             </Button>
           </div>
@@ -289,151 +442,170 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
           {discussionsLoading ? (
             <div className="space-y-2">
               {[1, 2].map((i) => (
-                <div key={i} className="skeleton h-16 w-full rounded" />
+                <div key={i} className="skeleton h-20 w-full rounded-xl" />
               ))}
             </div>
           ) : discussions && discussions.length > 0 ? (
             <div className="space-y-2">
               {discussions.map((discussion) => (
-                <Card
+                <button
                   key={discussion.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow hover:border-primary/50"
-                  onClick={() =>
-                    setLocation(`/team/${teamId}/discussion/${discussion.id}`)
-                  }
+                  onClick={() => setLocation(`/team/${teamId}/discussion/${discussion.id}`)}
+                  className="w-full text-left p-4 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-muted/30 transition-all group"
                 >
-                  <CardContent className="py-4">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-                        <MessageSquare className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground truncate">
-                          {discussion.title}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Created on{" "}
-                          {new Date(discussion.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-4 h-4 text-primary" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground text-sm truncate group-hover:text-primary transition-colors">
+                        {discussion.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(discussion.createdAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </button>
               ))}
             </div>
           ) : (
-            <Card>
-              <CardContent className="text-center py-8">
-                <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                <p className="text-muted-foreground mb-2">No discussions yet</p>
-                <p className="text-xs text-muted-foreground opacity-70">
-                  Start a conversation with your team
-                </p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-16 rounded-xl border border-dashed border-border">
+              <div className="w-14 h-14 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
+                <MessageSquare className="w-6 h-6 text-muted-foreground/40" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">No discussions yet</p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Start a conversation with your team
+              </p>
+              <Button
+                size="sm"
+                onClick={() => setShowDiscussionDialog(true)}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Start Discussion
+              </Button>
+            </div>
           )}
         </TabsContent>
 
-        {/* Online Tab */}
-        <TabsContent value="presence" className="space-y-4">
+        {/* ============ Online Now Tab ============ */}
+        <TabsContent value="presence" className="space-y-4 mt-4">
+          {/* Status bar */}
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              Updates automatically every 10 seconds
+            <p className="text-sm text-muted-foreground">
+              {presenceLoading
+                ? "Checking who's online…"
+                : `${onlineCount} member${onlineCount !== 1 ? "s" : ""} currently active`}
             </p>
-            {presenceLoading && (
-              <span className="text-xs text-muted-foreground animate-pulse">
-                Refreshing&hellip;
-              </span>
-            )}
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Updates every 10s
+              {presenceLoading && (
+                <Loader2 className="w-3 h-3 animate-spin ml-1" />
+              )}
+            </span>
           </div>
 
+          {/* Online members */}
           {presenceLoading && !presence ? (
             <div className="space-y-2">
               {[1, 2].map((i) => (
-                <div key={i} className="skeleton h-16 w-full rounded" />
+                <div key={i} className="skeleton h-20 w-full rounded-xl" />
               ))}
             </div>
-          ) : presence && presence.filter((p) => p.isOnline).length > 0 ? (
+          ) : onlineMembers.length > 0 ? (
             <div className="space-y-2">
-              {presence
-                .filter((user) => user.isOnline)
-                .map((user) => (
-                  <Card key={user.userId}>
-                    <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="relative shrink-0">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-sm font-semibold text-primary">
-                              {user.user.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-card" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground truncate">
-                            {user.user.name}
-                          </p>
-                          <p className="text-sm text-muted-foreground capitalize">
-                            {user.location || "team"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 self-start sm:self-auto">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        <p className="text-xs font-medium text-green-600">
-                          Online
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 px-1 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Active Now — {onlineMembers.length}
+              </p>
+              {onlineMembers.map((user) => (
+                <div
+                  key={user.userId}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar
+                      name={user.user.name}
+                      avatarUrl={user.user.avatarUrl}
+                      size="md"
+                      online={true}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground text-sm truncate">
+                        {user.user.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground capitalize flex items-center gap-1 mt-0.5">
+                        <ArrowRight className="w-3 h-3" />
+                        {user.location || "team"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      Online
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <Card>
-              <CardContent className="text-center py-12">
-                <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-                  <div className="w-8 h-8 rounded-full bg-muted-foreground/20" />
-                </div>
-                <p className="text-muted-foreground mb-2">No one is online right now</p>
-                <p className="text-xs text-muted-foreground opacity-70">
-                  Team members appear here when they&apos;re active
-                </p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-16 rounded-xl border border-dashed border-border">
+              <div className="w-14 h-14 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
+                <Radio className="w-6 h-6 text-muted-foreground/30" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">No one is online right now</p>
+              <p className="text-xs text-muted-foreground">
+                Team members appear here when they&apos;re active
+              </p>
+            </div>
           )}
 
-          {presence && presence.filter((p) => !p.isOnline).length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">
-                Offline Members
-              </h3>
+          {/* Offline members */}
+          {offlineMembers.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-1 mb-2">
+                Offline — {offlineMembers.length}
+              </p>
               <div className="space-y-2 opacity-60">
-                {presence
-                  .filter((user) => !user.isOnline)
-                  .map((user) => (
-                    <Card key={user.userId}>
-                      <CardContent className="flex items-center justify-between py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                            <span className="text-xs font-semibold text-muted-foreground">
-                              {user.user.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {user.user.name}
-                          </p>
-                        </div>
-                        <p className="text-xs text-muted-foreground shrink-0">Offline</p>
-                      </CardContent>
-                    </Card>
-                  ))}
+                {offlineMembers.map((user) => (
+                  <div
+                    key={user.userId}
+                    className="flex items-center justify-between p-3 rounded-xl border border-border bg-card"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar
+                        name={user.user.name}
+                        avatarUrl={user.user.avatarUrl}
+                        size="sm"
+                        online={false}
+                      />
+                      <p className="text-sm text-muted-foreground truncate font-medium">
+                        {user.user.name}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {user.lastActivity ? timeAgo(user.lastActivity) : "Offline"}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
         </TabsContent>
       </Tabs>
 
-      {/* Invite Member Dialog */}
+      {/* ============ Invite Member Dialog ============ */}
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
         <DialogContent>
           <DialogHeader>
@@ -467,15 +639,21 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
               <Button
                 onClick={handleInviteMember}
                 disabled={inviteTeamMember.isPending || !inviteEmail.trim()}
+                className="gap-2"
               >
-                {inviteTeamMember.isPending ? "Sending\u2026" : "Send Invitation"}
+                {inviteTeamMember.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <UserPlus className="w-4 h-4" />
+                )}
+                {inviteTeamMember.isPending ? "Sending…" : "Send Invitation"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Create Discussion Dialog */}
+      {/* ============ Create Discussion Dialog ============ */}
       <Dialog open={showDiscussionDialog} onOpenChange={setShowDiscussionDialog}>
         <DialogContent>
           <DialogHeader>
@@ -508,15 +686,21 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
               <Button
                 onClick={handleCreateDiscussion}
                 disabled={createDiscussion.isPending || !discussionTitle.trim()}
+                className="gap-2"
               >
-                {createDiscussion.isPending ? "Creating\u2026" : "Create"}
+                {createDiscussion.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                {createDiscussion.isPending ? "Creating…" : "Create"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Team Confirmation Dialog */}
+      {/* ============ Delete Team Confirmation Dialog ============ */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -533,7 +717,7 @@ export function TeamDetail({ teamId }: TeamDetailProps) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteTeam.isPending}
             >
-              {deleteTeam.isPending ? "Deleting\u2026" : "Delete Team"}
+              {deleteTeam.isPending ? "Deleting…" : "Delete Team"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
