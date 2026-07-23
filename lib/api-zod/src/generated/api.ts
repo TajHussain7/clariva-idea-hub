@@ -153,6 +153,9 @@ export const ListIdeasResponseItem = zod.object({
               desc: zod.string(),
               lang: zod.string(),
               url: zod.string(),
+              lastPushedAt: zod.string().nullish(),
+              openIssuesCount: zod.number().nullish(),
+              contributorCount: zod.number().nullish(),
               gapAnalysis: zod
                 .object({ gap: zod.string(), opportunity: zod.string() })
                 .nullish(),
@@ -162,6 +165,14 @@ export const ListIdeasResponseItem = zod.object({
         techStack: zod.array(zod.string()).nullish(),
         marketContext: zod.string().nullish(),
         verdictSummary: zod.string().nullish(),
+        dataConfidence: zod
+          .object({
+            score: zod.number(),
+            sourcesWithData: zod.array(zod.string()),
+            sourcesEmpty: zod.array(zod.string()),
+            note: zod.string(),
+          })
+          .nullish(),
         createdAt: zod.coerce.date(),
       }),
       zod.null(),
@@ -250,6 +261,9 @@ export const CompareIdeasResponseItem = zod.object({
               desc: zod.string(),
               lang: zod.string(),
               url: zod.string(),
+              lastPushedAt: zod.string().nullish(),
+              openIssuesCount: zod.number().nullish(),
+              contributorCount: zod.number().nullish(),
               gapAnalysis: zod
                 .object({ gap: zod.string(), opportunity: zod.string() })
                 .nullish(),
@@ -259,6 +273,14 @@ export const CompareIdeasResponseItem = zod.object({
         techStack: zod.array(zod.string()).nullish(),
         marketContext: zod.string().nullish(),
         verdictSummary: zod.string().nullish(),
+        dataConfidence: zod
+          .object({
+            score: zod.number(),
+            sourcesWithData: zod.array(zod.string()),
+            sourcesEmpty: zod.array(zod.string()),
+            note: zod.string(),
+          })
+          .nullish(),
         createdAt: zod.coerce.date(),
       }),
       zod.null(),
@@ -335,6 +357,9 @@ export const GetIdeaResponse = zod.object({
               desc: zod.string(),
               lang: zod.string(),
               url: zod.string(),
+              lastPushedAt: zod.string().nullish(),
+              openIssuesCount: zod.number().nullish(),
+              contributorCount: zod.number().nullish(),
               gapAnalysis: zod
                 .object({ gap: zod.string(), opportunity: zod.string() })
                 .nullish(),
@@ -344,6 +369,14 @@ export const GetIdeaResponse = zod.object({
         techStack: zod.array(zod.string()).nullish(),
         marketContext: zod.string().nullish(),
         verdictSummary: zod.string().nullish(),
+        dataConfidence: zod
+          .object({
+            score: zod.number(),
+            sourcesWithData: zod.array(zod.string()),
+            sourcesEmpty: zod.array(zod.string()),
+            note: zod.string(),
+          })
+          .nullish(),
         createdAt: zod.coerce.date(),
       }),
       zod.null(),
